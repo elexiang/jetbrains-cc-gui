@@ -49,6 +49,15 @@ function formatTokens(value: number): string {
   return Math.trunc(value).toLocaleString();
 }
 
+function formatQuotaDateTime(value: number): string {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return '';
+
+  const pad = (part: number) => String(part).padStart(2, '0');
+  return `${date.getFullYear()}/${pad(date.getMonth() + 1)}/${pad(date.getDate())} `
+    + `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
 function getProviderOptionStyle(enabled: boolean): React.CSSProperties {
   return {
     opacity: enabled ? 1 : 0.5,
@@ -212,7 +221,7 @@ export const ProviderSelect = ({ value, onChange, compact = false }: ProviderSel
           : null;
       const hasUsedTokens = typeof window?.usedTokens === 'number' && Number.isFinite(window.usedTokens) && window.usedTokens > 0;
       const resetsAt = typeof window?.resetsAt === 'number' && Number.isFinite(window.resetsAt)
-        ? new Date(window.resetsAt).toLocaleString()
+        ? formatQuotaDateTime(window.resetsAt)
         : null;
       return (
         <div style={SUBMENU_SECTION_STYLE}>
@@ -264,7 +273,7 @@ export const ProviderSelect = ({ value, onChange, compact = false }: ProviderSel
                 ? t('config.codexQuota.apiKeyMode', { defaultValue: 'API key mode has no subscription quota' })
                 : codexQuota?.status === 'ok'
                   ? t('config.codexQuota.lastUpdated', {
-                      value: new Date(codexQuota.fetchedAt).toLocaleString(),
+                      value: formatQuotaDateTime(codexQuota.fetchedAt),
                       defaultValue: 'Updated {{value}}',
                     })
                   : quotaLoading

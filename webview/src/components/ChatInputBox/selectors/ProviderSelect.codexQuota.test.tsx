@@ -34,6 +34,9 @@ describe('ProviderSelect Codex quota submenu', () => {
   });
 
   it('shows a submenu for Codex with quota details', async () => {
+    const fetchedAt = new Date(2026, 6, 13, 9, 54, 43).getTime();
+    const fiveHourResetsAt = new Date(2026, 6, 13, 17, 5, 6).getTime();
+    const weeklyResetsAt = new Date(2026, 6, 20, 8, 23, 2).getTime();
     render(<ProviderSelect value="claude" />);
 
     fireEvent.click(screen.getByRole('button'));
@@ -50,7 +53,7 @@ describe('ProviderSelect Codex quota submenu', () => {
     act(() => {
       window.updateCodexSubscriptionQuota?.(JSON.stringify({
         status: 'ok',
-        fetchedAt: 1710000000000,
+        fetchedAt,
         source: 'local_history',
         windows: {
           fiveHour: {
@@ -58,7 +61,7 @@ describe('ProviderSelect Codex quota submenu', () => {
             windowHours: 5,
             usedPercent: 80,
             remainingPercent: 20,
-            resetsAt: 1748676960000,
+            resetsAt: fiveHourResetsAt,
             usedTokens: 0,
             limitTokens: null,
             remainingTokens: null,
@@ -72,7 +75,7 @@ describe('ProviderSelect Codex quota submenu', () => {
             windowHours: 168,
             usedPercent: 68,
             remainingPercent: 32,
-            resetsAt: 1748763360000,
+            resetsAt: weeklyResetsAt,
             usedTokens: 0,
             limitTokens: null,
             remainingTokens: null,
@@ -88,10 +91,12 @@ describe('ProviderSelect Codex quota submenu', () => {
     const submenu = await screen.findByText('Codex quota');
     expect(submenu).toBeTruthy();
     const codexRowElement = codexRow as HTMLElement;
+    expect(within(codexRowElement).getByText('Updated 2026/07/13 09:54:43')).toBeTruthy();
     expect(within(codexRowElement).getByText('5h usage')).toBeTruthy();
-    expect(within(codexRowElement).getByText(/20% remaining \u00b7 Resets /)).toBeTruthy();
+    expect(within(codexRowElement).getByText('20% remaining \u00b7 Resets 2026/07/13 17:05:06')).toBeTruthy();
     expect(within(codexRowElement).getByText('Weekly usage')).toBeTruthy();
-    expect(within(codexRowElement).getByText(/32% remaining \u00b7 Resets /)).toBeTruthy();
+    expect(within(codexRowElement).getByText('32% remaining \u00b7 Resets 2026/07/20 08:23:02')).toBeTruthy();
+    expect(codexRowElement.textContent).not.toMatch(/\b(?:AM|PM)\b/);
     expect(screen.queryByText(/Source:/)).toBeNull();
     expect(screen.queryByText(/Balance refreshed at/)).toBeNull();
   });
