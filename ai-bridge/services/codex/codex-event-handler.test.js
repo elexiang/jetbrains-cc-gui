@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   createInitialEventState,
   isWindowsTaskkillParseNoise,
@@ -32,15 +35,142 @@ function tagLines(captured, tag) {
   return captured.filter((line) => line.startsWith(tag));
 }
 
-function makeConfig() {
+function makeConfig(overrides = {}) {
   return {
     cwd: undefined,
     threadId: null,
     threadOptions: {},
     normalizedPermissionMode: 'default',
     turnAbortController: new AbortController(),
+    ...overrides,
   };
 }
+
+test('custom_tool_call exec apply_patch emits edit and result messages without a file_change event', async () => {
+  const emittedMessages = [];
+  const state = createInitialEventState((message) => emittedMessages.push(message));
+  const patch = [
+    '*** Begin Patch',
+    '*** Update File: hbapp/src/example.js',
+    '@@ -1 +1 @@',
+    '-const size = 30;',
+    '+const size = 32;',
+    '*** End Patch',
+  ].join('\n');
+  const source = `const patch = ${JSON.stringify(patch)}; text(await tools.apply_patch(patch));`;
+
+  await captureStdout(async () => {
+    await processCodexEventStream(
+      eventsFrom([
+        {
+          type: 'response_item',
+          payload: { type: 'custom_tool_call', call_id: 'patch-1', name: 'exec', input: source },
+        },
+        {
+          type: 'response_item',
+          payload: { type: 'custom_tool_call_output', call_id: 'patch-1', output: 'Done' },
+        },
+      ]),
+      state,
+      makeConfig(),
+    );
+  });
+
+  assert.deepEqual(emittedMessages, [
+    {
+      type: 'assistant',
+      message: {
+        role: 'assistant',
+        content: [{
+          type: 'tool_use',
+          id: 'codex_patch_patch-1_0',
+          name: 'edit',
+          input: {
+            file_path: 'hbapp/src/example.js',
+            old_string: 'const size = 30;',
+            new_string: 'const size = 32;',
+            start_line: 1,
+            end_line: undefined,
+            replace_all: false,
+            source: 'codex_session_patch',
+          },
+        }],
+      },
+    },
+    {
+      type: 'user',
+      message: {
+        role: 'user',
+        content: [{
+          type: 'tool_result',
+          tool_use_id: 'codex_patch_patch-1_0',
+          is_error: false,
+          content: 'Patch applied',
+        }],
+      },
+    },
+  ]);
+});
+
+test('new thread completion uses thread.started id to replay custom_tool_call exec patches from session JSONL', async () => {
+  const emittedMessages = [];
+  const state = createInitialEventState((message) => emittedMessages.push(message));
+  const patch = [
+    '*** Begin Patch',
+    '*** Update File: hbapp/src/example.js',
+    '@@ -1 +1 @@',
+    '-const size = 30;',
+    '+const size = 32;',
+    '*** End Patch',
+  ].join('\n');
+  const source = `const patch = ${JSON.stringify(patch)}; text(await tools.apply_patch(patch));`;
+  const directory = await mkdtemp(join(tmpdir(), 'ccgui-codex-session-'));
+  const sessionFile = join(directory, 'rollout.jsonl');
+  const entries = [
+    {
+      type: 'response_item',
+      payload: { type: 'custom_tool_call', call_id: 'session-patch-1', name: 'exec', input: source },
+    },
+    {
+      type: 'response_item',
+      payload: { type: 'custom_tool_call_output', call_id: 'session-patch-1', output: 'Done' },
+    },
+  ];
+
+  try {
+    await writeFile(sessionFile, `${entries.map((entry) => JSON.stringify(entry)).join('\n')}\n`, 'utf8');
+    const lookedUpThreadIds = [];
+
+    await captureStdout(async () => {
+      await processCodexEventStream(
+        eventsFrom([
+          { type: 'thread.started', thread_id: 'new-thread-1' },
+          { type: 'turn.completed' },
+        ]),
+        state,
+        makeConfig({
+          threadId: null,
+          findSessionFileByThreadId: (threadId) => {
+            lookedUpThreadIds.push(threadId);
+            return sessionFile;
+          },
+        }),
+      );
+    });
+
+    assert.deepEqual(lookedUpThreadIds, ['new-thread-1']);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+
+  assert.equal(emittedMessages.length, 2);
+  assert.equal(emittedMessages[0].message.content[0].type, 'tool_use');
+  assert.equal(emittedMessages[0].message.content[0].name, 'edit');
+  assert.equal(emittedMessages[0].message.content[0].input.file_path, 'hbapp/src/example.js');
+  assert.equal(emittedMessages[1].message.content[0].type, 'tool_result');
+  assert.equal(emittedMessages[1].message.content[0].tool_use_id, 'codex_patch_session-patch-1_0');
+  assert.equal(emittedMessages[1].message.content[0].is_error, false);
+});
 
 test('Codex item.updated agent_message emits incremental content deltas before completion', async () => {
   const emittedMessages = [];
