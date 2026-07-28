@@ -260,16 +260,10 @@ function ensureToolUseId(state, phase, item) {
   return id;
 }
 
-function ensureSessionFilePath(state, threadOrConfig) {
+function ensureSessionFilePath(state, threadId) {
   if (state.sessionFilePath && existsSync(state.sessionFilePath)) return state.sessionFilePath;
-  const config = threadOrConfig && typeof threadOrConfig === 'object' ? threadOrConfig : null;
-  const explicitThreadId = typeof threadOrConfig === 'string' ? threadOrConfig : null;
-  const threadId = explicitThreadId || state.currentThreadId || config?.threadId;
   if (!threadId) return null;
-  const findSessionFile = typeof config?.findSessionFileByThreadId === 'function'
-    ? config.findSessionFileByThreadId
-    : findSessionFileByThreadId;
-  state.sessionFilePath = findSessionFile(threadId);
+  state.sessionFilePath = findSessionFileByThreadId(threadId);
   return state.sessionFilePath;
 }
 
@@ -326,7 +320,7 @@ async function ensureSessionTurnBoundary(state, config) {
     return false;
   }
 
-  const sessionPath = ensureSessionFilePath(state, config);
+  const sessionPath = ensureSessionFilePath(state, getSessionThreadId(state, config));
   if (!sessionPath) return false;
 
   let content = '';
@@ -361,8 +355,8 @@ function warnSessionTurnBoundaryNotReady(state) {
   logWarn('SESSION_REPLAY', 'Skipping JSONL function replay until a verified current-turn turn_context is available.');
 }
 
-async function readLatestTurnContextFromSession(state, config) {
-  const sessionPath = ensureSessionFilePath(state, config);
+async function readLatestTurnContextFromSession(state, threadId) {
+  const sessionPath = ensureSessionFilePath(state, threadId);
   if (!sessionPath) return null;
   let content = '';
   try { content = await readFile(sessionPath, 'utf8'); } catch (error) {
@@ -385,7 +379,7 @@ async function readLatestTurnContextFromSession(state, config) {
 }
 
 async function collectPatchOperationsFromSession(state, config) {
-  const sessionPath = ensureSessionFilePath(state, config);
+  const sessionPath = ensureSessionFilePath(state, getSessionThreadId(state, config));
   if (!sessionPath) return [];
   let content = '';
   try { content = await readFile(sessionPath, 'utf8'); } catch (error) {
@@ -425,7 +419,7 @@ async function replayMissingFunctionCallsFromSession(state, config) {
     return { toolUses: 0, toolResults: 0 };
   }
 
-  const sessionPath = ensureSessionFilePath(state, config);
+  const sessionPath = ensureSessionFilePath(state, getSessionThreadId(state, config));
   if (!sessionPath) return { toolUses: 0, toolResults: 0 };
 
   let content = '';
@@ -685,7 +679,7 @@ function maybeEmitReasoning(state, item) {
 
 async function maybeLogRuntimePolicy(state, config) {
   if (state.runtimePolicyLogged) return;
-  const turnContext = await readLatestTurnContextFromSession(state, config);
+  const turnContext = await readLatestTurnContextFromSession(state, config.threadId);
   if (!turnContext) return;
   const actualApproval = typeof turnContext.approval_policy === 'string' ? turnContext.approval_policy : '';
   const actualSandbox = turnContext?.sandbox_policy?.type || '';
