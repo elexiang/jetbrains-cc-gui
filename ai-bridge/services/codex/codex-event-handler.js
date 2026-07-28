@@ -110,11 +110,11 @@ function getResponseItemCallId(payload) {
   return typeof id === 'string' && id.trim() ? id : '';
 }
 
-function createPatchBatchFromPayload(payload, config) {
+function createPatchBatchFromPayload(payload, config, fallbackCallId = '') {
   const patchText = extractPatchFromResponseItemPayload(payload);
   if (!patchText) return null;
 
-  const callId = getResponseItemCallId(payload);
+  const callId = getResponseItemCallId(payload) || fallbackCallId;
   if (!callId) return null;
 
   const operations = parseApplyPatchToOperations(patchText)
@@ -411,7 +411,7 @@ async function collectPatchOperationsFromSession(state, config) {
     const callId = String(payload.call_id ?? payload.id ?? `line_${i}`);
     if (state.processedPatchCallIds.has(callId)) continue;
 
-    const batch = createPatchBatchFromPayload(payload, config);
+    const batch = createPatchBatchFromPayload(payload, config, callId);
     if (!batch) continue;
     state.processedPatchCallIds.add(callId);
     batches.push(batch);
@@ -1000,9 +1000,15 @@ export async function processCodexEventStream(events, state, config) {
             break;
           }
           if (handleCustomToolCallPayload(payload, state, config)) {
+            if (payloadCallId) {
+              state.processedSessionCustomToolCallIds.add(payloadCallId);
+            }
             break;
           }
           if (handleCustomToolCallOutputPayload(payload, state)) {
+            if (payloadCallId) {
+              state.processedSessionCustomToolOutputIds.add(payloadCallId);
+            }
             break;
           }
         }
