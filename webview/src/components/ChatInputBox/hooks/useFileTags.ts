@@ -220,14 +220,13 @@ export function useFileTags({
       const hashIndex = filePath.indexOf('#');
       const pureFilePath = hashIndex !== -1 ? filePath.substring(0, hashIndex) : filePath;
       const pureFileName = pureFilePath.split(/[/\\]/).pop() || pureFilePath;
-      const hasLineNumber = /#L\d+/.test(filePath);
-      const isAbsolutePath = /^[a-zA-Z]:[/\\]/.test(filePath) || filePath.startsWith('/');
-
+      // Every external path, including a line-number reference, must be
+      // registered before rendering. Do not accept every absolute-looking
+      // token here: if a delimiter is lost, there is no reliable way to
+      // distinguish `file.xml1414` from a real filename.
       return pathMappingRef.current.has(pureFilePath)
         || pathMappingRef.current.has(pureFileName)
-        || pathMappingRef.current.has(filePath)
-        || hasLineNumber
-        || isAbsolutePath;
+        || pathMappingRef.current.has(filePath);
     };
 
     const matches = findMatches(currentText);
