@@ -96,6 +96,10 @@ export interface ChatScreenProps {
   claudeSettingsAlwaysThinkingEnabled: ProviderState['claudeSettingsAlwaysThinkingEnabled'];
   reasoningEffort: ProviderState['reasoningEffort'];
   codexFastMode: ProviderState['codexFastMode'];
+  codexContextWindow: ProviderState['codexContextWindow'];
+  codexContextWindowTokens: ProviderState['codexContextWindowTokens'];
+  codexContextWindowLoading: ProviderState['codexContextWindowLoading'];
+  codexContextWindowSaving: ProviderState['codexContextWindowSaving'];
   streamingEnabledSetting: ProviderState['streamingEnabledSetting'];
   sendShortcut: ProviderState['sendShortcut'];
   autoOpenFileEnabled: ProviderState['autoOpenFileEnabled'];
@@ -110,6 +114,8 @@ export interface ChatScreenProps {
   onAgentSelect: ProviderState['handleAgentSelect'];
   onReasoningChange: ProviderState['handleReasoningChange'];
   onCodexFastModeChange: ProviderState['handleCodexFastModeChange'];
+  onCodexContextWindowChange: ProviderState['handleCodexContextWindowChange'];
+  onCodexContextWindowRefresh: ProviderState['refreshCodexContextWindow'];
   onToggleThinking: ProviderState['handleToggleThinking'];
   onStreamingEnabledChange: ProviderState['handleStreamingEnabledChange'];
   onAutoOpenFileEnabledChange: ProviderState['handleAutoOpenFileEnabledChange'];
@@ -142,9 +148,13 @@ export const ChatScreen = ({
   currentProvider, selectedModel, permissionMode, selectedAgent,
   sdkStatusLoading, sdkStatusError, onRetrySdkStatus, currentSdkInstalled,
   activeProviderConfig, claudeSettingsAlwaysThinkingEnabled,
-  reasoningEffort, codexFastMode, streamingEnabledSetting, sendShortcut, autoOpenFileEnabled,
+  reasoningEffort, codexFastMode,
+  codexContextWindow, codexContextWindowTokens,
+  codexContextWindowLoading, codexContextWindowSaving,
+  streamingEnabledSetting, sendShortcut, autoOpenFileEnabled,
   longContextEnabled, usagePercentage, usageUsedTokens, usageMaxTokens,
-  onModeSelect, onModelSelect, onAgentSelect, onReasoningChange, onCodexFastModeChange, onToggleThinking,
+  onModeSelect, onModelSelect, onAgentSelect, onReasoningChange, onCodexFastModeChange,
+  onCodexContextWindowChange, onCodexContextWindowRefresh, onToggleThinking,
   onStreamingEnabledChange,
   onAutoOpenFileEnabledChange, onLongContextChange,
   messageQueue, onRemoveFromQueue,
@@ -360,6 +370,12 @@ export const ChatScreen = ({
           onReasoningChange={onReasoningChange}
           codexFastMode={codexFastMode}
           onCodexFastModeChange={onCodexFastModeChange}
+          codexContextWindow={codexContextWindow}
+          codexContextWindowTokens={codexContextWindowTokens}
+          codexContextWindowLoading={codexContextWindowLoading}
+          codexContextWindowSaving={codexContextWindowSaving}
+          onCodexContextWindowChange={onCodexContextWindowChange}
+          onCodexContextWindowRefresh={onCodexContextWindowRefresh}
           onToggleThinking={onToggleThinking}
           streamingEnabled={streamingEnabledSetting}
           onStreamingEnabledChange={onStreamingEnabledChange}

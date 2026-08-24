@@ -1,5 +1,14 @@
 import type { TFunction } from 'i18next';
-import type { CodexFastMode, DropdownItemData, DropdownPosition, PermissionMode, ReasoningEffort, SelectedAgent } from './types.js';
+import type {
+  CodexContextWindowPreset,
+  CodexContextWindowValue,
+  CodexFastMode,
+  DropdownItemData,
+  DropdownPosition,
+  PermissionMode,
+  ReasoningEffort,
+  SelectedAgent,
+} from './types.js';
 import type { TooltipState } from './hooks/useTooltip.js';
 import { ButtonArea } from './ButtonArea.js';
 import { CompletionDropdown } from './Dropdown/index.js';
@@ -26,6 +35,10 @@ export function ChatInputBoxFooter({
   currentProvider,
   reasoningEffort,
   codexFastMode,
+  codexContextWindow,
+  codexContextWindowTokens,
+  codexContextWindowLoading,
+  codexContextWindowSaving,
   onSubmit,
   onStop,
   onModeSelect,
@@ -33,6 +46,8 @@ export function ChatInputBoxFooter({
   onProviderSelect,
   onReasoningChange,
   onCodexFastModeChange,
+  onCodexContextWindowChange,
+  onCodexContextWindowRefresh,
   onEnhancePrompt,
   alwaysThinkingEnabled,
   onToggleThinking,
@@ -63,6 +78,10 @@ export function ChatInputBoxFooter({
   currentProvider: string;
   reasoningEffort: ReasoningEffort;
   codexFastMode?: CodexFastMode;
+  codexContextWindow?: CodexContextWindowValue;
+  codexContextWindowTokens?: number | null;
+  codexContextWindowLoading?: boolean;
+  codexContextWindowSaving?: boolean;
   onSubmit: () => void;
   onStop?: () => void;
   onModeSelect?: (mode: PermissionMode) => void;
@@ -70,6 +89,8 @@ export function ChatInputBoxFooter({
   onProviderSelect?: (providerId: string) => void;
   onReasoningChange?: (effort: ReasoningEffort) => void;
   onCodexFastModeChange?: (mode: CodexFastMode) => void;
+  onCodexContextWindowChange?: (preset: CodexContextWindowPreset) => void;
+  onCodexContextWindowRefresh?: () => void;
   onEnhancePrompt: () => void;
   alwaysThinkingEnabled?: boolean;
   onToggleThinking?: (enabled: boolean) => void;
@@ -109,7 +130,7 @@ export function ChatInputBoxFooter({
     <>
       {/* Bottom button area */}
       <ButtonArea
-        disabled={disabled || isLoading}
+        disabled={disabled || isLoading || codexContextWindowSaving}
         hasInputContent={hasInputContent}
         isLoading={isLoading}
         isEnhancing={isEnhancing}
@@ -118,6 +139,10 @@ export function ChatInputBoxFooter({
         currentProvider={currentProvider}
         reasoningEffort={reasoningEffort}
         codexFastMode={codexFastMode}
+        codexContextWindow={codexContextWindow}
+        codexContextWindowTokens={codexContextWindowTokens}
+        codexContextWindowLoading={codexContextWindowLoading}
+        codexContextWindowSaving={codexContextWindowSaving}
         onSubmit={onSubmit}
         onStop={onStop}
         onModeSelect={onModeSelect}
@@ -125,6 +150,8 @@ export function ChatInputBoxFooter({
         onProviderSelect={onProviderSelect}
         onReasoningChange={onReasoningChange}
         onCodexFastModeChange={onCodexFastModeChange}
+        onCodexContextWindowChange={onCodexContextWindowChange}
+        onCodexContextWindowRefresh={onCodexContextWindowRefresh}
         onEnhancePrompt={onEnhancePrompt}
         alwaysThinkingEnabled={alwaysThinkingEnabled}
         onToggleThinking={onToggleThinking}

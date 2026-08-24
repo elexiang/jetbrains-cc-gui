@@ -573,6 +573,12 @@ export type ReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
  */
 export type CodexFastMode = 'normal' | 'fast';
 
+/** Codex global context-window presets exposed by CC GUI. */
+export type CodexContextWindowPreset = 'default' | '500k' | '1m';
+
+/** A persisted config may contain values outside the three selectable presets. */
+export type CodexContextWindowValue = CodexContextWindowPreset | 'custom';
+
 /**
  * Reasoning level information
  */
@@ -728,6 +734,18 @@ export interface ChatInputBoxProps {
   codexFastMode?: CodexFastMode;
   /** Switch Codex speed mode callback */
   onCodexFastModeChange?: (mode: CodexFastMode) => void;
+  /** Current Codex context-window selection */
+  codexContextWindow?: CodexContextWindowValue;
+  /** Raw configured context-window tokens (used for custom display) */
+  codexContextWindowTokens?: number | null;
+  /** Whether the global Codex context config is loading */
+  codexContextWindowLoading?: boolean;
+  /** Whether the global Codex context config is being saved */
+  codexContextWindowSaving?: boolean;
+  /** Switch Codex context-window preset */
+  onCodexContextWindowChange?: (preset: CodexContextWindowPreset) => void;
+  /** Refresh Codex context-window config from disk */
+  onCodexContextWindowRefresh?: () => void;
   /** Toggle thinking mode */
   onToggleThinking?: (enabled: boolean) => void;
   /** Whether streaming is enabled */
@@ -822,6 +840,18 @@ export interface ButtonAreaProps {
   onReasoningChange?: (effort: ReasoningEffort) => void;
   /** Switch Codex speed mode callback */
   onCodexFastModeChange?: (mode: CodexFastMode) => void;
+  /** Current Codex context-window selection */
+  codexContextWindow?: CodexContextWindowValue;
+  /** Raw configured context-window tokens (used for custom display) */
+  codexContextWindowTokens?: number | null;
+  /** Whether the global Codex context config is loading */
+  codexContextWindowLoading?: boolean;
+  /** Whether the global Codex context config is being saved */
+  codexContextWindowSaving?: boolean;
+  /** Switch Codex context-window preset */
+  onCodexContextWindowChange?: (preset: CodexContextWindowPreset) => void;
+  /** Refresh Codex context-window config from disk */
+  onCodexContextWindowRefresh?: () => void;
   /** Enhance prompt callback */
   onEnhancePrompt?: () => void;
   /** Whether always thinking enabled */

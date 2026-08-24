@@ -100,6 +100,12 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
       onReasoningChange,
       codexFastMode = 'normal',
       onCodexFastModeChange,
+      codexContextWindow = 'default',
+      codexContextWindowTokens = 272_000,
+      codexContextWindowLoading = false,
+      codexContextWindowSaving = false,
+      onCodexContextWindowChange,
+      onCodexContextWindowRefresh,
       activeFile,
       selectedLines,
       onClearContext,
@@ -449,6 +455,7 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
       sdkStatusLoading,
       sdkInstalled,
       currentProvider,
+      submitBlocked: currentProvider === 'codex' && codexContextWindowSaving,
       clearInput,
       cancelPendingInput: () => {
         debouncedOnInput.cancel();
@@ -775,6 +782,10 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
           currentProvider={currentProvider}
           reasoningEffort={reasoningEffort}
           codexFastMode={codexFastMode}
+          codexContextWindow={codexContextWindow}
+          codexContextWindowTokens={codexContextWindowTokens}
+          codexContextWindowLoading={codexContextWindowLoading}
+          codexContextWindowSaving={codexContextWindowSaving}
           onSubmit={handleSubmit}
           onStop={onStop}
           onModeSelect={handleModeSelect}
@@ -782,6 +793,8 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
           onProviderSelect={onProviderSelect}
           onReasoningChange={onReasoningChange}
           onCodexFastModeChange={onCodexFastModeChange}
+          onCodexContextWindowChange={onCodexContextWindowChange}
+          onCodexContextWindowRefresh={onCodexContextWindowRefresh}
           onEnhancePrompt={handleEnhancePrompt}
           alwaysThinkingEnabled={alwaysThinkingEnabled}
           onToggleThinking={onToggleThinking}

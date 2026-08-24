@@ -2,7 +2,15 @@ import { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ButtonAreaProps, CodexFastMode, ModelInfo, PermissionMode, ReasoningEffort } from './types';
 import { DEFAULT_CLAUDE_MODEL_ID } from './types';
-import { CodexFastModeSelect, ConfigSelect, ModelSelect, ModeSelect, ProviderSelect, ReasoningSelect } from './selectors';
+import {
+  CodexContextWindowSelect,
+  CodexFastModeSelect,
+  ConfigSelect,
+  ModelSelect,
+  ModeSelect,
+  ProviderSelect,
+  ReasoningSelect,
+} from './selectors';
 import { STORAGE_KEYS, validateCodexCustomModels } from '../../types/provider';
 import type { CodexCustomModel } from '../../types/provider';
 import { readClaudeModelMapping } from '../../utils/claudeModelMapping';
@@ -79,6 +87,10 @@ export const ButtonArea = ({
   currentProvider = 'claude',
   reasoningEffort = 'high',
   codexFastMode = 'normal',
+  codexContextWindow = 'default',
+  codexContextWindowTokens = 272_000,
+  codexContextWindowLoading = false,
+  codexContextWindowSaving = false,
   onSubmit,
   onStop,
   onModeSelect,
@@ -86,6 +98,8 @@ export const ButtonArea = ({
   onProviderSelect,
   onReasoningChange,
   onCodexFastModeChange,
+  onCodexContextWindowChange,
+  onCodexContextWindowRefresh,
   onEnhancePrompt,
   alwaysThinkingEnabled = false,
   onToggleThinking,
@@ -249,6 +263,9 @@ export const ButtonArea = ({
     permissionMode,
     reasoningEffort,
     codexFastMode,
+    codexContextWindow,
+    codexContextWindowLoading ? 'context-loading' : 'context-ready',
+    codexContextWindowSaving ? 'context-saving' : 'context-saved',
     selectedAgent?.id ?? '',
     cliModelsLoading ? 'loading' : 'ready',
   ].join('|');
@@ -297,7 +314,19 @@ export const ButtonArea = ({
         />
         <ReasoningSelect value={reasoningEffort} onChange={handleReasoningChange} selectedModel={selectedModel} currentProvider={currentProvider} />
         {currentProvider === 'codex' && (
-          <CodexFastModeSelect value={codexFastMode} onChange={handleCodexFastModeChange} />
+          <>
+            <CodexFastModeSelect value={codexFastMode} onChange={handleCodexFastModeChange} />
+            {onCodexContextWindowChange ? (
+              <CodexContextWindowSelect
+                value={codexContextWindow}
+                contextWindowTokens={codexContextWindowTokens}
+                loading={codexContextWindowLoading}
+                saving={codexContextWindowSaving}
+                onChange={onCodexContextWindowChange}
+                onRefresh={onCodexContextWindowRefresh}
+              />
+            ) : null}
+          </>
         )}
       </div>
 
