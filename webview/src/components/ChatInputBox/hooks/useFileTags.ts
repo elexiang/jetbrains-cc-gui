@@ -11,7 +11,6 @@ import {
   getVirtualCursorPosition,
   setVirtualCursorPosition,
 } from '../utils/virtualCursorUtils.js';
-import { looksLikePathSegment } from '../../../utils/pathSegment.js';
 import type { FileTagInfo } from '../types.js';
 
 interface FileMatch {
@@ -170,37 +169,14 @@ export function useFileTags({
           continue;
         }
 
-        // Fall back to simple pattern matching for paths not in pathMappingRef.
-        // This handles absolute paths and paths with line numbers.
-        // The helper scans forward allowing spaces when the next segment
-        // looks like a path continuation (contains a path separator: \ or /,
-        // or ends with a file extension — e.g. a filename with spaces).
+        // Fall back to a single whitespace-delimited token for paths that are
+        // not in pathMappingRef. File insertion routes register full paths
+        // before inserting them, so mapped matching is the only safe way to
+        // support spaces in file names.
         const remainingText = text.substring(i);
-        const afterAt = remainingText.slice(1); // text after '@'
-        let endPos = 0;
-        while (endPos < afterAt.length) {
-          const ch = afterAt[endPos];
-          if (ch === '\n' || ch === '\r' || ch === '@') break;
-          if (ch === ' ' || ch === '\t') {
-            // Peek ahead: if next segment has a path separator or file
-            // extension, the space is inside the path — include it.
-            const peekRemainder = afterAt.slice(endPos + 1);
-            if (peekRemainder.length > 0 && peekRemainder[0] !== ' '
-              && peekRemainder[0] !== '\t' && peekRemainder[0] !== '\n'
-              && peekRemainder[0] !== '\r' && peekRemainder[0] !== '@'
-              && looksLikePathSegment(peekRemainder.split(/\s/)[0])
-            ) {
-              endPos++; // include the space, continue scanning
-              continue;
-            }
-            break;
-          }
-          endPos++;
-        }
-        const fallbackPath = afterAt.slice(0, endPos);
-        const simpleMatch = fallbackPath.length > 0
-          ? ['@' + fallbackPath + (remainingText[endPos + 1] === ' ' ? ' ' : ''), fallbackPath] as const
-          : null;
+        // A whitespace-delimited fallback prevents ordinary text after an
+        // unregistered XML/Vue/HTML path from being absorbed into the tag.
+        const simpleMatch = remainingText.match(/^@([^\s@]+?)(\s|$)/);
 
         if (simpleMatch) {
           matches.push({
@@ -220,23 +196,13 @@ export function useFileTags({
       const hashIndex = filePath.indexOf('#');
       const pureFilePath = hashIndex !== -1 ? filePath.substring(0, hashIndex) : filePath;
       const pureFileName = pureFilePath.split(/[/\\]/).pop() || pureFilePath;
-      const isRegistered = pathMappingRef.current.has(pureFilePath)
+      // Every external path, including a line-number reference, must be
+      // registered before rendering. Do not accept every absolute-looking
+      // token here: if a delimiter is lost, there is no reliable way to
+      // distinguish file.xml1414 from a real filename.
+      return pathMappingRef.current.has(pureFilePath)
         || pathMappingRef.current.has(pureFileName)
         || pathMappingRef.current.has(filePath);
-      if (isRegistered) return true;
-
-      // Preserve the existing single-reference fallback for a manually typed
-      // absolute path or line reference. Boundaries are only ambiguous when
-      // another @ marker also starts an absolute-looking path; ordinary @
-      // text (emails, annotations) must not disable the fallback. Accepting
-      // an absolute-looking fallback alongside another path-like marker can
-      // absorb ordinary text between two references (issue #1726).
-      const absoluteAtMarkers = currentText.match(/@(?=(?:[a-zA-Z]:[/\\]|\\\\|\/))/g);
-      if (absoluteAtMarkers !== null && absoluteAtMarkers.length > 1) return false;
-
-      const hasLineNumber = /#L\d+/.test(filePath);
-      const isAbsolutePath = /^[a-zA-Z]:[/\\]/.test(filePath) || filePath.startsWith('/');
-      return hasLineNumber || isAbsolutePath;
     };
 
     const matches = findMatches(currentText);
