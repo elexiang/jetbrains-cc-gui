@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
 import type { CodexContextWindowPreset, CodexContextWindowValue } from '../types';
 
 const RELATIVE_INLINE_BLOCK_STYLE: React.CSSProperties = { position: 'relative', display: 'inline-block' };
@@ -21,6 +22,9 @@ interface CodexContextWindowSelectProps {
   saving?: boolean;
   onChange: (preset: CodexContextWindowPreset) => void;
   onRefresh?: () => void;
+  embedded?: boolean;
+  triggerRef?: React.RefObject<HTMLElement | null>;
+  onClose?: () => void;
 }
 
 const CONTEXT_WINDOW_OPTIONS: Array<{
@@ -45,7 +49,7 @@ const CONTEXT_WINDOW_OPTIONS: Array<{
   },
 ];
 
-function formatTokenCount(tokens?: number | null): string {
+export function formatTokenCount(tokens?: number | null): string {
   if (typeof tokens !== 'number' || !Number.isFinite(tokens) || tokens <= 0) {
     return '';
   }
@@ -64,12 +68,23 @@ export const CodexContextWindowSelect = ({
   saving = false,
   onChange,
   onRefresh,
+  embedded = false,
+  triggerRef,
+  onClose,
 }: CodexContextWindowSelectProps) => {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const disabled = loading || saving;
+  const { positionedStyle, maxHeight, maxWidth, recalculate } = useDropdownPosition({
+    buttonRef: (embedded ? triggerRef : buttonRef) as React.RefObject<HTMLElement | null>,
+    dropdownRef,
+    preferredAlignment: 'right',
+    submenu: embedded,
+    minWidth: 230,
+    maxWidth: 340,
+  });
 
   const getOptionText = useCallback((
     option: typeof CONTEXT_WINDOW_OPTIONS[number],
@@ -103,13 +118,14 @@ export const CodexContextWindowSelect = ({
   }, [disabled, onRefresh]);
 
   const handleSelect = useCallback((preset: CodexContextWindowPreset) => {
-    if (saving) return;
+    if (disabled) return;
     onChange(preset);
     setIsOpen(false);
-  }, [onChange, saving]);
+    onClose?.();
+  }, [disabled, onChange, onClose]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (embedded || !isOpen) return;
 
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
@@ -126,7 +142,57 @@ export const CodexContextWindowSelect = ({
       clearTimeout(timer);
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isOpen]);
+  }, [embedded, isOpen]);
+
+  useEffect(() => {
+    if (embedded) onRefresh?.();
+  }, [embedded, onRefresh]);
+
+  useLayoutEffect(() => {
+    if (embedded || isOpen) recalculate();
+  }, [embedded, isOpen, recalculate]);
+
+  const dropdownStyle: React.CSSProperties = embedded
+    ? {
+        minWidth: 0,
+        maxWidth: maxWidth ?? 340,
+        ...(maxHeight != null
+          ? { maxHeight: `${maxHeight}px`, overflowY: 'auto' as const }
+          : { overflowY: 'visible' as const }),
+        ...positionedStyle,
+      }
+    : { ...DROPDOWN_STYLE, ...positionedStyle };
+
+  const renderDropdown = () => (
+    <div
+      ref={dropdownRef}
+      className="selector-dropdown"
+      style={dropdownStyle}
+      role="listbox"
+      onMouseEnter={(event) => event.stopPropagation()}
+    >
+      {CONTEXT_WINDOW_OPTIONS.map(option => (
+        <div
+          key={option.id}
+          className={`selector-option ${option.id === value ? 'selected' : ''}`}
+          onClick={() => handleSelect(option.id)}
+          title={getOptionText(option, 'description')}
+          role="option"
+          aria-selected={option.id === value}
+          data-testid={`codex-context-option-${option.id}`}
+        >
+          <span className="codicon codicon-symbol-number" />
+          <div style={OPTION_INFO_STYLE}>
+            <span>{getOptionText(option, 'label')}</span>
+            <span className="mode-description">{getOptionText(option, 'description')}</span>
+          </div>
+          {option.id === value ? <span className="codicon codicon-check check-mark" /> : null}
+        </div>
+      ))}
+    </div>
+  );
+
+  if (embedded) return renderDropdown();
 
   return (
     <div style={RELATIVE_INLINE_BLOCK_STYLE} data-testid="codex-context-window-select">
@@ -142,28 +208,7 @@ export const CodexContextWindowSelect = ({
         <span className={`codicon codicon-chevron-${isOpen ? 'up' : 'down'}`} style={CHEVRON_ICON_STYLE} />
       </button>
 
-      {isOpen ? (
-        <div ref={dropdownRef} className="selector-dropdown" style={DROPDOWN_STYLE} role="listbox">
-          {CONTEXT_WINDOW_OPTIONS.map(option => (
-            <div
-              key={option.id}
-              className={`selector-option ${option.id === value ? 'selected' : ''}`}
-              onClick={() => handleSelect(option.id)}
-              title={getOptionText(option, 'description')}
-              role="option"
-              aria-selected={option.id === value}
-              data-testid={`codex-context-option-${option.id}`}
-            >
-              <span className="codicon codicon-symbol-number" />
-              <div style={OPTION_INFO_STYLE}>
-                <span>{getOptionText(option, 'label')}</span>
-                <span className="mode-description">{getOptionText(option, 'description')}</span>
-              </div>
-              {option.id === value ? <span className="codicon codicon-check check-mark" /> : null}
-            </div>
-          ))}
-        </div>
-      ) : null}
+      {isOpen ? renderDropdown() : null}
     </div>
   );
 };

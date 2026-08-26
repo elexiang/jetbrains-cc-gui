@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ButtonArea } from './ButtonArea';
 
@@ -13,7 +13,7 @@ vi.mock('react-i18next', async (importOriginal) => {
 });
 
 describe('ButtonArea Codex context-window placement', () => {
-  it('shows the context selector immediately after speed only for Codex', () => {
+  it('shows the context selector inside model settings only for Codex', () => {
     const props = {
       selectedModel: 'gpt-5.6-sol',
       currentProvider: 'codex',
@@ -24,11 +24,12 @@ describe('ButtonArea Codex context-window placement', () => {
     } as const;
     const { rerender } = render(<ButtonArea {...props} />);
 
-    const speedButton = screen.getByTitle('Select Codex speed mode');
-    const contextSelector = screen.getByTestId('codex-context-window-select');
-    expect(speedButton.parentElement?.nextElementSibling).toBe(contextSelector);
+    fireEvent.click(screen.getByTestId('model-config-trigger'));
+    expect(screen.getByTestId('model-config-option-codex-context')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('model-config-option-codex-context'));
+    expect(screen.getAllByRole('option')).toHaveLength(3);
 
     rerender(<ButtonArea {...props} currentProvider="claude" />);
-    expect(screen.queryByTestId('codex-context-window-select')).toBeNull();
+    expect(screen.queryByTestId('model-config-option-codex-context')).toBeNull();
   });
 });
