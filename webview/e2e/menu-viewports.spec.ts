@@ -226,12 +226,13 @@ test('footer selector menus render inside the viewport', async ({ page }) => {
   await expect(page.locator('.button-area').first()).toHaveAttribute('data-provider', 'claude');
 
   const buttons = page.locator('.button-area-left .selector-button');
-  await expect(buttons).toHaveCount(4);
+  await expect(buttons).toHaveCount(5);
 
   await openSelectorMenu(page, buttons.nth(0), 'config');
   await openSelectorMenu(page, buttons.nth(1), 'provider');
   await openSelectorMenu(page, buttons.nth(2), 'mode');
-  await openSelectorMenu(page, buttons.nth(3), 'model config');
+  await openSelectorMenu(page, buttons.nth(3), 'model');
+  await openSelectorMenu(page, buttons.nth(4), 'reasoning');
 
   expect(significantErrors(errors)).toEqual([]);
 });
@@ -278,7 +279,7 @@ test('long model and mode text stays contained in selector menus', async ({ page
   await expect(page.locator('.button-area-left')).toBeVisible();
 
   const buttons = page.locator('.button-area-left .selector-button');
-  await expect(buttons).toHaveCount(4);
+  await expect(buttons).toHaveCount(5);
 
   await buttons.nth(2).click();
   const modeDropdown = page.locator('.selector-dropdown').first();
@@ -291,11 +292,6 @@ test('long model and mode text stays contained in selector menus', async ({ page
   await closeOpenMenus(page);
 
   await buttons.nth(3).click();
-  const modelConfigDropdown = page.locator('.model-config-dropdown');
-  await expect(modelConfigDropdown).toBeVisible();
-  await expectInsideViewport(page, modelConfigDropdown, 'model config dropdown');
-  const modelRow = modelConfigDropdown.getByTestId('model-config-option-model');
-  await modelRow.hover();
   const modelDropdown = page.locator('.model-selector-dropdown');
   await expect(modelDropdown).toBeVisible();
   await expectInsideViewport(page, modelDropdown, 'model dropdown with long custom model');
@@ -317,9 +313,6 @@ test('large model selector remains searchable and capped', async ({ page }) => {
 
   const modelButton = page.locator('.button-area-left .selector-button').nth(3);
   await modelButton.click();
-  const modelConfigDropdown = page.locator('.model-config-dropdown');
-  await expect(modelConfigDropdown).toBeVisible();
-  await modelConfigDropdown.getByTestId('model-config-option-model').hover();
   const modelDropdown = page.locator('.model-selector-dropdown');
   await expect(modelDropdown).toBeVisible();
   await expectInsideViewport(page, modelDropdown, 'large model dropdown');

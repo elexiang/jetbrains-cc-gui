@@ -2,7 +2,16 @@ import { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ButtonAreaProps, CodexFastMode, ModelInfo, PermissionMode, ReasoningEffort } from './types';
 import { DEFAULT_CLAUDE_MODEL_ID } from './types';
-import { ConfigSelect, ModeSelect, ModelConfigSelect, ProviderSelect } from './selectors';
+import {
+  CodexContextWindowSelect,
+  CodexFastModeSelect,
+  ConfigSelect,
+  DshPresetSelect,
+  ModelSelect,
+  ModeSelect,
+  ProviderSelect,
+  ReasoningSelect,
+} from './selectors';
 import { STORAGE_KEYS, validateCodexCustomModels } from '../../types/provider';
 import type { CodexCustomModel } from '../../types/provider';
 import { readClaudeModelMapping } from '../../utils/claudeModelMapping';
@@ -303,9 +312,9 @@ export const ButtonArea = ({
           compact
         />
         <ModeSelect value={permissionMode} onChange={handleModeSelect} provider={currentProvider} />
-        <ModelConfigSelect
-          selectedModel={selectedModel}
-          onModelSelect={handleModelSelect}
+        <ModelSelect
+          value={selectedModel}
+          onChange={handleModelSelect}
           models={availableModels}
           currentProvider={currentProvider}
           loading={cliModelsLoading}
@@ -314,19 +323,31 @@ export const ButtonArea = ({
           onAddModel={onAddModel}
           longContextEnabled={longContextEnabled}
           onLongContextChange={onLongContextChange}
-          reasoningEffort={reasoningEffort}
-          onReasoningChange={handleReasoningChange}
-          codexFastMode={codexFastMode}
-          onCodexFastModeChange={handleCodexFastModeChange}
-          codexContextWindow={codexContextWindow}
-          codexContextWindowTokens={codexContextWindowTokens}
-          codexContextWindowLoading={codexContextWindowLoading}
-          codexContextWindowSaving={codexContextWindowSaving}
-          onCodexContextWindowChange={onCodexContextWindowChange}
-          onCodexContextWindowRefresh={onCodexContextWindowRefresh}
-          dshPreset={dshPreset}
-          onDshPresetChange={handleDshPresetChange}
         />
+        <ReasoningSelect
+          value={reasoningEffort}
+          onChange={handleReasoningChange}
+          selectedModel={selectedModel}
+          currentProvider={currentProvider}
+        />
+        {currentProvider === 'codex' && (
+          <>
+            <CodexFastModeSelect value={codexFastMode} onChange={handleCodexFastModeChange} />
+            {onCodexContextWindowChange ? (
+              <CodexContextWindowSelect
+                value={codexContextWindow}
+                contextWindowTokens={codexContextWindowTokens}
+                loading={codexContextWindowLoading}
+                saving={codexContextWindowSaving}
+                onChange={onCodexContextWindowChange}
+                onRefresh={onCodexContextWindowRefresh}
+              />
+            ) : null}
+          </>
+        )}
+        {currentProvider === 'dsh' && (
+          <DshPresetSelect value={dshPreset} onChange={handleDshPresetChange} />
+        )}
       </div>
 
       {/* Right side: tool buttons */}
