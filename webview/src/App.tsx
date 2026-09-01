@@ -164,6 +164,7 @@ const App = () => {
     reasoningEffort, codexFastMode,
     codexContextWindow, codexContextWindowTokens,
     codexContextWindowLoading, codexContextWindowSaving,
+    codexAutoRoutingEnabled, codexAutoRoutingLoading, codexAutoRoutingSaving,
     dshPreset, streamingEnabledSetting, sendShortcut, autoOpenFileEnabled,
     longContextEnabled,
     usagePercentage, usageUsedTokens, usageMaxTokens,
@@ -182,7 +183,7 @@ const App = () => {
     syncActiveProviderModelMapping,
     handleModeSelect, handleModelSelect, handleProviderSelect,
     handleReasoningChange, handleCodexFastModeChange, handleCodexContextWindowChange,
-    refreshCodexContextWindow, handleDshPresetChange, handleAgentSelect, handleToggleThinking,
+    refreshCodexContextWindow, handleCodexAutoRoutingChange, handleDshPresetChange, handleAgentSelect, handleToggleThinking,
     handleStreamingEnabledChange, handleSendShortcutChange,
     handleAutoOpenFileEnabledChange, handleLongContextChange,
   } = useModelProviderState({ addToast, t });
@@ -657,6 +658,9 @@ const App = () => {
               codexContextWindowTokens={codexContextWindowTokens}
               codexContextWindowLoading={codexContextWindowLoading}
               codexContextWindowSaving={codexContextWindowSaving}
+              codexAutoRoutingEnabled={codexAutoRoutingEnabled}
+              codexAutoRoutingLoading={codexAutoRoutingLoading}
+              codexAutoRoutingSaving={codexAutoRoutingSaving}
               dshPreset={dshPreset}
               streamingEnabledSetting={streamingEnabledSetting}
               sendShortcut={sendShortcut}
@@ -672,6 +676,7 @@ const App = () => {
               onCodexFastModeChange={handleCodexFastModeChange}
               onCodexContextWindowChange={handleCodexContextWindowChange}
               onCodexContextWindowRefresh={refreshCodexContextWindow}
+              onCodexAutoRoutingChange={handleCodexAutoRoutingChange}
               onDshPresetChange={handleDshPresetChange}
               onToggleThinking={handleToggleThinking}
               onStreamingEnabledChange={handleStreamingEnabledChange}

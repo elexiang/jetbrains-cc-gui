@@ -837,6 +837,12 @@ export interface ChatInputBoxProps {
   codexContextWindowLoading?: boolean;
   /** Whether the global Codex context config is being saved */
   codexContextWindowSaving?: boolean;
+  /** Whether shared CC GUI/Codex desktop auto routing is enabled. */
+  codexAutoRoutingEnabled?: boolean;
+  /** Whether shared auto-routing config is loading. */
+  codexAutoRoutingLoading?: boolean;
+  /** Whether shared auto-routing config is being saved. */
+  codexAutoRoutingSaving?: boolean;
   /** DSH agent preset */
   dshPreset?: string;
   /** Switch Codex speed mode callback */
@@ -845,6 +851,8 @@ export interface ChatInputBoxProps {
   onCodexContextWindowChange?: (preset: CodexContextWindowPreset) => void;
   /** Refresh Codex context-window config from disk */
   onCodexContextWindowRefresh?: () => void;
+  /** Toggle shared CC GUI/Codex desktop auto routing. */
+  onCodexAutoRoutingChange?: (enabled: boolean) => void;
   /** Switch DSH agent preset callback */
   onDshPresetChange?: (preset: string) => void;
   /** Toggle thinking mode */
@@ -938,6 +946,12 @@ export interface ButtonAreaProps {
   codexContextWindowLoading?: boolean;
   /** Whether the global Codex context config is being saved */
   codexContextWindowSaving?: boolean;
+  /** Whether shared CC GUI/Codex desktop auto routing is enabled. */
+  codexAutoRoutingEnabled?: boolean;
+  /** Whether shared auto-routing config is loading. */
+  codexAutoRoutingLoading?: boolean;
+  /** Whether shared auto-routing config is being saved. */
+  codexAutoRoutingSaving?: boolean;
   /** DSH agent preset */
   dshPreset?: string;
 
@@ -955,6 +969,8 @@ export interface ButtonAreaProps {
   onCodexContextWindowChange?: (preset: CodexContextWindowPreset) => void;
   /** Refresh Codex context-window config from disk */
   onCodexContextWindowRefresh?: () => void;
+  /** Toggle shared CC GUI/Codex desktop auto routing. */
+  onCodexAutoRoutingChange?: (enabled: boolean) => void;
   /** Switch DSH agent preset callback */
   onDshPresetChange?: (preset: string) => void;
   /** Enhance prompt callback */

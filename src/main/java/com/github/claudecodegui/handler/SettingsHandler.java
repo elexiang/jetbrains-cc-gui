@@ -36,6 +36,7 @@ public class SettingsHandler extends BaseMessageHandler {
     private final CodexSubscriptionQuotaHandler codexSubscriptionQuotaHandler;
     private final TokenTrackerHandler tokenTrackerHandler;
     private final DshPresetHandler dshPresetHandler;
+    private final CodexAutoRoutingHandler codexAutoRoutingHandler;
 
     private static final String[] SUPPORTED_TYPES = {
         "get_mode",
@@ -46,6 +47,8 @@ public class SettingsHandler extends BaseMessageHandler {
         "set_codex_fast_mode",
         "get_codex_context_window",
         "set_codex_context_window",
+        "get_codex_auto_routing",
+        "set_codex_auto_routing",
         "set_dsh_preset",
         "get_node_path",
         "set_node_path",
@@ -124,6 +127,7 @@ public class SettingsHandler extends BaseMessageHandler {
         this.permissionModeHandler = new PermissionModeHandler(context);
         this.modelProviderHandler = new ModelProviderHandler(context, usagePushService);
         this.codexContextWindowHandler = new CodexContextWindowHandler(context);
+        this.codexAutoRoutingHandler = new CodexAutoRoutingHandler(context);
         this.nodePathHandler = new NodePathHandler(context);
         this.claudeCliPathHandler = new ClaudeCliPathHandler(context);
         this.projectConfigHandler = new ProjectConfigHandler(context);
@@ -154,6 +158,7 @@ public class SettingsHandler extends BaseMessageHandler {
      */
     public void dispose() {
         codexContextWindowHandler.dispose();
+        codexAutoRoutingHandler.dispose();
         if (themeCallbackHandle != null) {
             ThemeConfigService.unregisterThemeChangeListener(themeCallbackHandle);
             themeCallbackHandle = null;
@@ -193,6 +198,12 @@ public class SettingsHandler extends BaseMessageHandler {
                 return true;
             case "set_codex_context_window":
                 codexContextWindowHandler.handleSet(content);
+                return true;
+            case "get_codex_auto_routing":
+                codexAutoRoutingHandler.handleGet();
+                return true;
+            case "set_codex_auto_routing":
+                codexAutoRoutingHandler.handleSet(content);
                 return true;
             case "set_dsh_preset":
                 dshPresetHandler.handleSetDshPreset(content);

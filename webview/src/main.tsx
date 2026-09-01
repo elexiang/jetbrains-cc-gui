@@ -669,6 +669,16 @@ if (typeof window !== 'undefined' && !window.updateCodexContextWindowConfig) {
   };
 }
 
+// Keep the latest shared auto-routing config if Java answers before the Codex
+// provider hook registers its authoritative callback.
+if (typeof window !== 'undefined' && !window.updateCodexAutoRoutingConfig) {
+  window.updateCodexAutoRoutingConfig = (dataOrString) => {
+    window.__pendingCodexAutoRoutingConfig = typeof dataOrString === 'string'
+      ? dataOrString
+      : JSON.stringify(dataOrString);
+  };
+}
+
 if (typeof window !== 'undefined' && !window.showPermissionDialog) {
   debugLog('[Main] Pre-registering showPermissionDialog placeholder');
   window.showPermissionDialog = (json: string) => {

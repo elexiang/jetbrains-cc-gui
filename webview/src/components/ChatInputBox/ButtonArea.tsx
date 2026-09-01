@@ -4,6 +4,7 @@ import type { ButtonAreaProps, CodexFastMode, ModelInfo, PermissionMode, Reasoni
 import { DEFAULT_CLAUDE_MODEL_ID } from './types';
 import {
   CodexContextWindowSelect,
+  CodexAutoRoutingSwitch,
   CodexFastModeSelect,
   ConfigSelect,
   DshPresetSelect,
@@ -93,6 +94,9 @@ export const ButtonArea = ({
   codexContextWindowTokens = 272_000,
   codexContextWindowLoading = false,
   codexContextWindowSaving = false,
+  codexAutoRoutingEnabled = false,
+  codexAutoRoutingLoading = false,
+  codexAutoRoutingSaving = false,
   onSubmit,
   onStop,
   onModeSelect,
@@ -102,6 +106,7 @@ export const ButtonArea = ({
   onCodexFastModeChange,
   onCodexContextWindowChange,
   onCodexContextWindowRefresh,
+  onCodexAutoRoutingChange,
   onDshPresetChange,
   onEnhancePrompt,
   alwaysThinkingEnabled = false,
@@ -277,6 +282,9 @@ export const ButtonArea = ({
     codexContextWindow,
     codexContextWindowLoading ? 'context-loading' : 'context-ready',
     codexContextWindowSaving ? 'context-saving' : 'context-saved',
+    codexAutoRoutingEnabled ? 'routing-on' : 'routing-off',
+    codexAutoRoutingLoading ? 'routing-loading' : 'routing-ready',
+    codexAutoRoutingSaving ? 'routing-saving' : 'routing-saved',
     dshPreset,
     selectedAgent?.id ?? '',
     cliModelsLoading ? 'loading' : 'ready',
@@ -343,6 +351,12 @@ export const ButtonArea = ({
                 onRefresh={onCodexContextWindowRefresh}
               />
             ) : null}
+            <CodexAutoRoutingSwitch
+              enabled={codexAutoRoutingEnabled}
+              loading={codexAutoRoutingLoading}
+              saving={codexAutoRoutingSaving}
+              onChange={onCodexAutoRoutingChange}
+            />
           </>
         )}
         {currentProvider === 'dsh' && (

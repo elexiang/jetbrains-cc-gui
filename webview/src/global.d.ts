@@ -1144,6 +1144,14 @@ interface Window {
   /** Buffers Codex context config when Java responds before the provider hook mounts. */
   __pendingCodexContextWindowConfig?: string;
 
+  /** Shared Codex auto-routing config pushed by the Java backend. */
+  updateCodexAutoRoutingConfig?: (
+    dataOrString: string | { success?: boolean; enabled?: boolean; error?: string }
+  ) => void;
+
+  /** Buffers auto-routing config when Java responds before the provider hook mounts. */
+  __pendingCodexAutoRoutingConfig?: string;
+
   // ============================================================================
   // Provider settings panel callbacks (registered by ProviderList)
   // ============================================================================

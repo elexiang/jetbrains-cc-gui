@@ -12,6 +12,8 @@ import type {
 
 const CONTEXT_CONFIG_RETRY_LIMIT = 30;
 const CONTEXT_CONFIG_SAVE_TIMEOUT_MS = 10_000;
+const AUTO_ROUTING_CONFIG_RETRY_LIMIT = 30;
+const AUTO_ROUTING_CONFIG_SAVE_TIMEOUT_MS = 10_000;
 
 interface UseCodexProviderOptions {
   currentProvider: string;
@@ -25,6 +27,12 @@ interface CodexContextWindowPayload {
   contextWindow?: unknown;
   autoCompactTokenLimit?: unknown;
   custom?: unknown;
+  error?: unknown;
+}
+
+interface CodexAutoRoutingPayload {
+  success?: boolean;
+  enabled?: unknown;
   error?: unknown;
 }
 
@@ -59,6 +67,19 @@ const parseContextWindowPayload = (
   return dataOrString && typeof dataOrString === 'object' ? dataOrString : null;
 };
 
+const parseAutoRoutingPayload = (
+  dataOrString: string | CodexAutoRoutingPayload,
+): CodexAutoRoutingPayload | null => {
+  if (typeof dataOrString === 'string') {
+    try {
+      return JSON.parse(dataOrString) as CodexAutoRoutingPayload;
+    } catch {
+      return null;
+    }
+  }
+  return dataOrString && typeof dataOrString === 'object' ? dataOrString : null;
+};
+
 /**
  * Codex-specific selectable state. `reasoningEffort` lives here because the
  * value set is a Codex/OpenAI concept (low/medium/high/xhigh/max). The change
@@ -74,14 +95,26 @@ export function useCodexProvider({ currentProvider, addToast, t }: UseCodexProvi
   const [codexAutoCompactTokenLimit, setCodexAutoCompactTokenLimit] = useState<number | null>(244_800);
   const [codexContextWindowLoading, setCodexContextWindowLoading] = useState(true);
   const [codexContextWindowSaving, setCodexContextWindowSaving] = useState(false);
+  const [codexAutoRoutingEnabled, setCodexAutoRoutingEnabled] = useState(false);
+  const [codexAutoRoutingLoading, setCodexAutoRoutingLoading] = useState(true);
+  const [codexAutoRoutingSaving, setCodexAutoRoutingSaving] = useState(false);
   const lastConfirmedContextRef = useRef<ConfirmedContextWindowConfig>(DEFAULT_CONTEXT_WINDOW_CONFIG);
   const pendingPresetRef = useRef<CodexContextWindowPreset | null>(null);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingAutoRoutingRef = useRef<boolean | null>(null);
+  const autoRoutingSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearSaveTimeout = useCallback(() => {
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
       saveTimeoutRef.current = null;
+    }
+  }, []);
+
+  const clearAutoRoutingSaveTimeout = useCallback(() => {
+    if (autoRoutingSaveTimeoutRef.current) {
+      clearTimeout(autoRoutingSaveTimeoutRef.current);
+      autoRoutingSaveTimeoutRef.current = null;
     }
   }, []);
 
@@ -181,6 +214,118 @@ export function useCodexProvider({ currentProvider, addToast, t }: UseCodexProvi
     }
   }, [currentProvider, refreshCodexContextWindow]);
 
+  const refreshCodexAutoRouting = useCallback(() => sendBridgeEvent('get_codex_auto_routing'), []);
+
+  const applyAutoRoutingConfig = useCallback((enabled: boolean) => {
+    setCodexAutoRoutingEnabled(enabled);
+    if (!enabled) return;
+
+    // The shared policy uses Terra as the manager. Keep the CC GUI model picker
+    // aligned so the next new thread matches the global desktop behavior.
+    setSelectedCodexModel('gpt-5.6-terra');
+    setReasoningEffort('xhigh');
+    if (currentProvider === 'codex') {
+      sendBridgeEvent('set_model', 'gpt-5.6-terra');
+      sendBridgeEvent('set_reasoning_effort', 'xhigh');
+    }
+  }, [currentProvider]);
+
+  useEffect(() => {
+    const handleConfig = (dataOrString: string | CodexAutoRoutingPayload) => {
+      const payload = parseAutoRoutingPayload(dataOrString);
+      if (!payload || typeof payload.enabled !== 'boolean') return;
+
+      if (payload.success === false) {
+        setCodexAutoRoutingLoading(false);
+        setCodexAutoRoutingSaving(false);
+        pendingAutoRoutingRef.current = null;
+        clearAutoRoutingSaveTimeout();
+        const error = typeof payload.error === 'string' && payload.error.trim()
+          ? payload.error.trim()
+          : t('codexAutoRouting.saveFailed', { defaultValue: 'Failed to update shared auto routing' });
+        addToast(error, 'error');
+        return;
+      }
+
+      applyAutoRoutingConfig(payload.enabled);
+      setCodexAutoRoutingLoading(false);
+      if (pendingAutoRoutingRef.current !== null) {
+        const requested = pendingAutoRoutingRef.current;
+        if (requested !== payload.enabled) return;
+        pendingAutoRoutingRef.current = null;
+        setCodexAutoRoutingSaving(false);
+        clearAutoRoutingSaveTimeout();
+        addToast(
+          t('codexAutoRouting.saved', {
+            enabled: payload.enabled,
+            defaultValue: payload.enabled
+              ? 'Shared auto routing enabled; create a new Codex session to apply it'
+              : 'Shared auto routing disabled; create a new Codex session to apply it',
+          }),
+          'success',
+        );
+      } else {
+        setCodexAutoRoutingSaving(false);
+      }
+    };
+
+    window.updateCodexAutoRoutingConfig = handleConfig;
+    if (window.__pendingCodexAutoRoutingConfig) {
+      const pending = window.__pendingCodexAutoRoutingConfig;
+      delete window.__pendingCodexAutoRoutingConfig;
+      handleConfig(pending);
+    }
+
+    let retryCount = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    const requestInitialConfig = () => {
+      if (refreshCodexAutoRouting()) return;
+      retryCount += 1;
+      if (retryCount < AUTO_ROUTING_CONFIG_RETRY_LIMIT) {
+        retryTimer = setTimeout(requestInitialConfig, 100);
+      } else {
+        setCodexAutoRoutingLoading(false);
+      }
+    };
+    retryTimer = setTimeout(requestInitialConfig, 200);
+
+    return () => {
+      if (retryTimer) clearTimeout(retryTimer);
+      clearAutoRoutingSaveTimeout();
+      if (window.updateCodexAutoRoutingConfig === handleConfig) {
+        delete window.updateCodexAutoRoutingConfig;
+      }
+    };
+  }, [addToast, applyAutoRoutingConfig, clearAutoRoutingSaveTimeout, refreshCodexAutoRouting, t]);
+
+  const handleCodexAutoRoutingChange = useCallback((enabled: boolean) => {
+    if (codexAutoRoutingSaving) return;
+
+    pendingAutoRoutingRef.current = enabled;
+    setCodexAutoRoutingSaving(true);
+    if (!sendBridgeEvent('set_codex_auto_routing', JSON.stringify({ enabled }))) {
+      pendingAutoRoutingRef.current = null;
+      setCodexAutoRoutingSaving(false);
+      addToast(
+        t('codexAutoRouting.bridgeUnavailable', { defaultValue: 'Shared auto-routing settings are not available yet' }),
+        'error',
+      );
+      return;
+    }
+
+    clearAutoRoutingSaveTimeout();
+    autoRoutingSaveTimeoutRef.current = setTimeout(() => {
+      pendingAutoRoutingRef.current = null;
+      autoRoutingSaveTimeoutRef.current = null;
+      setCodexAutoRoutingSaving(false);
+      addToast(
+        t('codexAutoRouting.saveTimeout', { defaultValue: 'Timed out while saving shared auto routing' }),
+        'error',
+      );
+      refreshCodexAutoRouting();
+    }, AUTO_ROUTING_CONFIG_SAVE_TIMEOUT_MS);
+  }, [addToast, clearAutoRoutingSaveTimeout, codexAutoRoutingSaving, refreshCodexAutoRouting, t]);
+
   const handleReasoningChange = useCallback((effort: ReasoningEffort) => {
     setReasoningEffort(effort);
     sendBridgeEvent('set_reasoning_effort', effort);
@@ -253,10 +398,15 @@ export function useCodexProvider({ currentProvider, addToast, t }: UseCodexProvi
     codexAutoCompactTokenLimit,
     codexContextWindowLoading,
     codexContextWindowSaving,
+    codexAutoRoutingEnabled,
+    codexAutoRoutingLoading,
+    codexAutoRoutingSaving,
     handleReasoningChange,
     handleCodexFastModeChange,
     handleCodexContextWindowChange,
     refreshCodexContextWindow,
+    handleCodexAutoRoutingChange,
+    refreshCodexAutoRouting,
   };
 }
 

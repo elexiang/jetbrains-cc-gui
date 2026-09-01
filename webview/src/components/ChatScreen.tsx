@@ -100,6 +100,9 @@ export interface ChatScreenProps {
   codexContextWindowTokens: ProviderState['codexContextWindowTokens'];
   codexContextWindowLoading: ProviderState['codexContextWindowLoading'];
   codexContextWindowSaving: ProviderState['codexContextWindowSaving'];
+  codexAutoRoutingEnabled: ProviderState['codexAutoRoutingEnabled'];
+  codexAutoRoutingLoading: ProviderState['codexAutoRoutingLoading'];
+  codexAutoRoutingSaving: ProviderState['codexAutoRoutingSaving'];
   dshPreset: ProviderState['dshPreset'];
   streamingEnabledSetting: ProviderState['streamingEnabledSetting'];
   sendShortcut: ProviderState['sendShortcut'];
@@ -117,6 +120,7 @@ export interface ChatScreenProps {
   onCodexFastModeChange: ProviderState['handleCodexFastModeChange'];
   onCodexContextWindowChange: ProviderState['handleCodexContextWindowChange'];
   onCodexContextWindowRefresh: ProviderState['refreshCodexContextWindow'];
+  onCodexAutoRoutingChange: ProviderState['handleCodexAutoRoutingChange'];
   onDshPresetChange: ProviderState['handleDshPresetChange'];
   onToggleThinking: ProviderState['handleToggleThinking'];
   onStreamingEnabledChange: ProviderState['handleStreamingEnabledChange'];
@@ -153,10 +157,12 @@ export const ChatScreen = ({
   reasoningEffort, codexFastMode,
   codexContextWindow, codexContextWindowTokens,
   codexContextWindowLoading, codexContextWindowSaving,
+  codexAutoRoutingEnabled, codexAutoRoutingLoading, codexAutoRoutingSaving,
   dshPreset, streamingEnabledSetting, sendShortcut, autoOpenFileEnabled,
   longContextEnabled, usagePercentage, usageUsedTokens, usageMaxTokens,
   onModeSelect, onModelSelect, onAgentSelect, onReasoningChange, onCodexFastModeChange,
   onCodexContextWindowChange, onCodexContextWindowRefresh, onDshPresetChange, onToggleThinking,
+  onCodexAutoRoutingChange,
   onStreamingEnabledChange,
   onAutoOpenFileEnabledChange, onLongContextChange,
   messageQueue, onRemoveFromQueue,
@@ -378,8 +384,12 @@ export const ChatScreen = ({
           codexContextWindowTokens={codexContextWindowTokens}
           codexContextWindowLoading={codexContextWindowLoading}
           codexContextWindowSaving={codexContextWindowSaving}
+          codexAutoRoutingEnabled={codexAutoRoutingEnabled}
+          codexAutoRoutingLoading={codexAutoRoutingLoading}
+          codexAutoRoutingSaving={codexAutoRoutingSaving}
           onCodexContextWindowChange={onCodexContextWindowChange}
           onCodexContextWindowRefresh={onCodexContextWindowRefresh}
+          onCodexAutoRoutingChange={onCodexAutoRoutingChange}
           onDshPresetChange={onDshPresetChange}
           onToggleThinking={onToggleThinking}
           streamingEnabled={streamingEnabledSetting}

@@ -39,6 +39,9 @@ export function ChatInputBoxFooter({
   codexContextWindowTokens,
   codexContextWindowLoading,
   codexContextWindowSaving,
+  codexAutoRoutingEnabled,
+  codexAutoRoutingLoading,
+  codexAutoRoutingSaving,
   dshPreset,
   onSubmit,
   onStop,
@@ -49,6 +52,7 @@ export function ChatInputBoxFooter({
   onCodexFastModeChange,
   onCodexContextWindowChange,
   onCodexContextWindowRefresh,
+  onCodexAutoRoutingChange,
   onDshPresetChange,
   onEnhancePrompt,
   alwaysThinkingEnabled,
@@ -84,6 +88,9 @@ export function ChatInputBoxFooter({
   codexContextWindowTokens?: number | null;
   codexContextWindowLoading?: boolean;
   codexContextWindowSaving?: boolean;
+  codexAutoRoutingEnabled?: boolean;
+  codexAutoRoutingLoading?: boolean;
+  codexAutoRoutingSaving?: boolean;
   dshPreset?: string;
   onSubmit: () => void;
   onStop?: () => void;
@@ -94,6 +101,7 @@ export function ChatInputBoxFooter({
   onCodexFastModeChange?: (mode: CodexFastMode) => void;
   onCodexContextWindowChange?: (preset: CodexContextWindowPreset) => void;
   onCodexContextWindowRefresh?: () => void;
+  onCodexAutoRoutingChange?: (enabled: boolean) => void;
   onDshPresetChange?: (preset: string) => void;
   onEnhancePrompt: () => void;
   alwaysThinkingEnabled?: boolean;
@@ -134,7 +142,7 @@ export function ChatInputBoxFooter({
     <>
       {/* Bottom button area */}
       <ButtonArea
-        disabled={disabled || isLoading || codexContextWindowSaving}
+        disabled={disabled || isLoading || codexContextWindowSaving || codexAutoRoutingSaving}
         hasInputContent={hasInputContent}
         isLoading={isLoading}
         isEnhancing={isEnhancing}
@@ -147,6 +155,9 @@ export function ChatInputBoxFooter({
         codexContextWindowTokens={codexContextWindowTokens}
         codexContextWindowLoading={codexContextWindowLoading}
         codexContextWindowSaving={codexContextWindowSaving}
+        codexAutoRoutingEnabled={codexAutoRoutingEnabled}
+        codexAutoRoutingLoading={codexAutoRoutingLoading}
+        codexAutoRoutingSaving={codexAutoRoutingSaving}
         dshPreset={dshPreset}
         onSubmit={onSubmit}
         onStop={onStop}
@@ -157,6 +168,7 @@ export function ChatInputBoxFooter({
         onCodexFastModeChange={onCodexFastModeChange}
         onCodexContextWindowChange={onCodexContextWindowChange}
         onCodexContextWindowRefresh={onCodexContextWindowRefresh}
+        onCodexAutoRoutingChange={onCodexAutoRoutingChange}
         onDshPresetChange={onDshPresetChange}
         onEnhancePrompt={onEnhancePrompt}
         alwaysThinkingEnabled={alwaysThinkingEnabled}
