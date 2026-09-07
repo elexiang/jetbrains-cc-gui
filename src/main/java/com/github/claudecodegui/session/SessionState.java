@@ -104,13 +104,17 @@ public class SessionState {
     private volatile String channelId;
     private volatile String runtimeSessionEpoch = UUID.randomUUID().toString();
 
-    // Session state — accessed only on EDT / single handler thread, no volatile needed.
+    // Session state. Message callbacks, history loaders, and provider readers can
+    // run on different executor threads, so structural access is synchronized
+    // rather than relying on the old single-threading convention.
     private boolean busy = false;
     private boolean loading = false;
     private String error = null;
 
     // Message history
     private final List<ClaudeSession.Message> messages = new ArrayList<>();
+    private final Object messagesLock = new Object();
+    private long messagesRevision = 0L;
 
     // Session metadata — cwd is written in handler thread before send(), read inside send();
     // the happens-before from CompletableFuture.runAsync guarantees visibility, so volatile is not required.
@@ -161,11 +165,42 @@ public class SessionState {
     }
 
     public List<ClaudeSession.Message> getMessages() {
-        return new ArrayList<>(messages);
+        synchronized (messagesLock) {
+            return new ArrayList<>(messages);
+        }
+    }
+
+    /**
+     * Return a structural snapshot for callback-side scans.
+     *
+     * <p>The returned list contains the live message objects so callers may
+     * patch their volatile/raw fields, but structural changes must go through
+     * {@link #addMessage(ClaudeSession.Message)}, {@link #clearMessages()}, or
+     * {@link #replaceMessages(List)}.</p>
+     *
+     * @return a stable list snapshot
+     */
+    public List<ClaudeSession.Message> getMessagesSnapshot() {
+        synchronized (messagesLock) {
+            return new ArrayList<>(messages);
+        }
+    }
+
+    /**
+     * Return the current structural message revision.
+     *
+     * @return monotonically increasing message-list revision
+     */
+    public long getMessagesRevision() {
+        synchronized (messagesLock) {
+            return messagesRevision;
+        }
     }
 
     public List<ClaudeSession.Message> getMessagesReference() {
-        return messages;
+        // Keep the legacy method for source compatibility, but do not expose
+        // the mutable ArrayList to asynchronous provider callbacks.
+        return getMessagesSnapshot();
     }
 
     public String getSummary() {
@@ -369,14 +404,60 @@ public class SessionState {
      * Add a message to the history.
      */
     public void addMessage(ClaudeSession.Message message) {
-        messages.add(message);
+        synchronized (messagesLock) {
+            messages.add(message);
+            messagesRevision++;
+        }
     }
 
     /**
      * Clear all messages.
      */
     public void clearMessages() {
-        messages.clear();
+        synchronized (messagesLock) {
+            messages.clear();
+            messagesRevision++;
+        }
+    }
+
+    /**
+     * Replace the complete message history as one structural operation.
+     *
+     * @param replacement messages in canonical provider order
+     */
+    public void replaceMessages(List<ClaudeSession.Message> replacement) {
+        synchronized (messagesLock) {
+            messages.clear();
+            if (replacement != null) {
+                messages.addAll(replacement);
+            }
+            messagesRevision++;
+        }
+    }
+
+    /**
+     * Replace the history only when no newer structural mutation occurred
+     * while the caller was loading it.
+     *
+     * @param expectedRevision revision captured before the asynchronous load
+     * @param replacement messages in canonical provider order
+     * @return {@code true} when the replacement was applied
+     */
+    public boolean replaceMessagesIfRevision(
+            long expectedRevision,
+            List<ClaudeSession.Message> replacement
+    ) {
+        synchronized (messagesLock) {
+            if (messagesRevision != expectedRevision) {
+                return false;
+            }
+            messages.clear();
+            if (replacement != null) {
+                messages.addAll(replacement);
+            }
+            messagesRevision++;
+            return true;
+        }
     }
 
     /**

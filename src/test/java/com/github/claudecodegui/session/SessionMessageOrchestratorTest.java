@@ -8,6 +8,8 @@ import org.junit.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -126,6 +128,61 @@ public class SessionMessageOrchestratorTest {
         assertEquals("The stack trace points to SessionSendService.", state.getMessages().get(1).content);
         assertEquals(1, callback.messageUpdates.size());
         assertTrue(callback.stateChanges.contains("false:false:null"));
+    }
+
+    @Test
+    public void loadFromServerDoesNotOverwriteMessageAddedWhileHistoryIsRead() throws Exception {
+        SessionState state = new SessionState();
+        state.setProvider("codex");
+        state.setSessionId("session-race");
+        state.setCwd("/workspace");
+
+        CountDownLatch historyReadStarted = new CountDownLatch(1);
+        CountDownLatch releaseHistoryRead = new CountDownLatch(1);
+        SessionMessageOrchestrator.SessionHistoryAccess historyAccess =
+                new SessionMessageOrchestrator.SessionHistoryAccess() {
+                    @Override
+                    public List<JsonObject> getProviderSessionMessages(String provider, String sessionId, String cwd) {
+                        historyReadStarted.countDown();
+                        try {
+                            if (!releaseHistoryRead.await(5, TimeUnit.SECONDS)) {
+                                throw new AssertionError("timed out waiting to release history read");
+                            }
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            throw new AssertionError("history read was interrupted", e);
+                        }
+                        return List.of(createProviderMessage("user", "stale history"));
+                    }
+
+                    @Override
+                    public JsonObject getLatestClaudeUserMessage(String sessionId, String cwd) {
+                        return null;
+                    }
+                };
+
+        SessionMessageOrchestrator orchestrator = new SessionMessageOrchestrator(
+                state,
+                new MessageParser(),
+                new SessionCallbackFacade(null),
+                historyAccess,
+                (usedTokens, maxTokens) -> {
+                },
+                0,
+                0
+        );
+
+        var load = orchestrator.loadFromServer();
+        assertTrue(historyReadStarted.await(5, TimeUnit.SECONDS));
+        state.addMessage(new ClaudeSession.Message(
+                ClaudeSession.Message.Type.USER,
+                "live message"
+        ));
+        releaseHistoryRead.countDown();
+        load.join();
+
+        assertEquals(1, state.getMessages().size());
+        assertEquals("live message", state.getMessages().get(0).content);
     }
 
     /**

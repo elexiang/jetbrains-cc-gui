@@ -19,6 +19,7 @@ import {
   preserveLastAssistantIdentity,
   preserveLatestMessagesOnShrink,
   preserveStreamingAssistantContent,
+  stabilizeMessageTurnOrder,
   stripDuplicateTrailingToolMessages,
 } from '../messageSync';
 import { clearDeferredTransitionUpdateMessages, releaseSessionTransition } from '../sessionTransition';
@@ -132,7 +133,25 @@ export function registerMessageCallbacks(
       resultList,
       options.currentProviderRef.current,
     );
-    return ensureStreamingAssistantPreserved(prevList, withoutDuplicateToolTail);
+    const withStreamingAssistant = ensureStreamingAssistantPreserved(
+      prevList,
+      withoutDuplicateToolTail,
+    );
+    const stabilized = stabilizeMessageTurnOrder(withStreamingAssistant);
+
+    // Reordering complete turns changes the streaming assistant's array index.
+    // Keep the delta path pointed at the same logical turn after the repair.
+    if (isStreamingRef.current && streamingTurnIdRef.current > 0) {
+      const streamingIndex = stabilized.findIndex(
+        (message) => message.type === 'assistant'
+          && message.__turnId === streamingTurnIdRef.current,
+      );
+      if (streamingIndex >= 0) {
+        streamingMessageIndexRef.current = streamingIndex;
+      }
+    }
+
+    return stabilized;
   };
 
   // During streaming, buffer updateMessages calls and process only the latest
@@ -843,7 +862,7 @@ export function registerMessageCallbacks(
 
   window.addHistoryMessage = (message: ClaudeMessage) => {
     if (window.__sessionTransitioning) return;
-    setMessages((prev) => [...prev, message]);
+    setMessages((prev) => stabilizeMessageTurnOrder([...prev, message]));
   };
 
   window.beginCodexHistoryPage = (json: string) => {
@@ -940,9 +959,12 @@ export function registerMessageCallbacks(
           && streamingMessageIndexRef.current >= 0) {
         streamingMessageIndexRef.current += pageMessages.length;
       }
-      setMessages((prev) => pending.mode === 'replace'
-        ? pageMessages
-        : [...pageMessages, ...prev]);
+      setMessages((prev) => {
+        const next = pending.mode === 'replace'
+          ? pageMessages
+          : [...pageMessages, ...prev];
+        return stabilizeMessageTurnOrder(next);
+      });
 
       window.__codexHistoryPageInfo = info;
       window.dispatchEvent(new CustomEvent<CodexHistoryPageInfo>('codex-history-page-info', {
@@ -997,7 +1019,7 @@ export function registerMessageCallbacks(
       orphanIds = collectUnresolvedToolUseIds(prev, 'all');
       // Shallow copy forces ChatMessages to re-render so the now-denied IDs are
       // picked up by BashToolGroupBlock's deniedToolIds prop.
-      return prev.map(m => ({ ...m }));
+      return stabilizeMessageTurnOrder(prev.map(m => ({ ...m })));
     });
     for (const id of orphanIds) {
       window.__deniedToolIds.add(id);
@@ -1057,7 +1079,7 @@ export function registerMessageCallbacks(
       if (lastMsg?.isOptimistic && lastMsg.type === 'user' && lastMsg.content === content) {
         return prev;
       }
-      return [...prev, userMessage];
+      return stabilizeMessageTurnOrder([...prev, userMessage]);
     });
     userPausedRef.current = false;
     isUserAtBottomRef.current = true;
