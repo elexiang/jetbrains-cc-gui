@@ -96,6 +96,26 @@
   font-size: 14px;
 }
 
+/* Theme-safe square checkbox indicator used by compact Fast / 1M toggles. */
+.selector-checkbox {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  flex: 0 0 12px;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  color: currentColor;
+  line-height: 1;
+}
+
+.selector-checkbox .codicon {
+  font-size: 9px;
+  line-height: 1;
+}
+
 /* Responsive text hiding for selector buttons */
 .selector-button-text {
   white-space: nowrap;

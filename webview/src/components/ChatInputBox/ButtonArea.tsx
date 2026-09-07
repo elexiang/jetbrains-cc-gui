@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { ButtonAreaProps, CodexFastMode, ModelInfo, PermissionMode, ReasoningEffort } from './types';
 import { DEFAULT_CLAUDE_MODEL_ID } from './types';
 import {
-  CodexFastModeSelect,
+  CodexFastModeToggle,
   ConfigSelect,
   DshPresetSelect,
   ModelSelect,
@@ -335,7 +335,7 @@ export const ButtonArea = ({
           currentProvider={currentProvider}
         />
         {currentProvider === 'codex' && (
-          <CodexFastModeSelect value={codexFastMode} onChange={handleCodexFastModeChange} />
+          <CodexFastModeToggle value={codexFastMode} onChange={handleCodexFastModeChange} />
         )}
         {currentProvider === 'dsh' && (
           <DshPresetSelect value={dshPreset} onChange={handleDshPresetChange} />

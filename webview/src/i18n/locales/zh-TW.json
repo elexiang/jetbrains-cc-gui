@@ -1918,6 +1918,7 @@
   },
   "codexFastMode": {
     "title": "選擇 Codex 速度模式",
+    "toggleTitle": "啟用或停用 Codex Fast 模式",
     "normal": {
       "label": "標準",
       "description": "Codex 的預設回應速度"

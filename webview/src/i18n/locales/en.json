@@ -2400,6 +2400,7 @@
   },
   "codexFastMode": {
     "title": "Select Codex speed mode",
+    "toggleTitle": "Toggle Codex Fast mode",
     "normal": {
       "label": "Standard",
       "description": "Codex default response speed"

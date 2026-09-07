@@ -354,12 +354,14 @@ test('Codex keeps context controls in the top ContextBar', async ({ page }, test
   const contextBar = page.locator('.context-bar');
   const modelTrigger = left.getByTestId('model-select-trigger');
   const reasoningTrigger = left.getByTestId('reasoning-select-trigger');
-  const speedTrigger = left.getByTestId('codex-fast-mode-trigger');
+  const speedToggle = left.getByTestId('codex-fast-mode-toggle');
   const contextToggle = contextBar.getByTestId('codex-context-window-toggle');
   const managementTrigger = contextBar.getByTestId('codex-context-management-trigger');
   await expect(modelTrigger).toBeVisible();
   await expect(reasoningTrigger).toBeVisible();
-  await expect(speedTrigger).toBeVisible();
+  await expect(speedToggle).toBeVisible();
+  await expect(speedToggle).toHaveAttribute('role', 'checkbox');
+  await expect(speedToggle).toHaveAttribute('aria-checked', 'false');
   await expect(contextToggle).toBeVisible();
   await expect(managementTrigger).toBeVisible();
   await expect(managementTrigger).toHaveText(/^(Old|旧|舊)$/);
@@ -374,7 +376,6 @@ test('Codex keeps context controls in the top ContextBar', async ({ page }, test
 
   await openDirectSelector(page, modelTrigger, page.getByTestId('model-selector-dropdown'), 'Codex model');
   await openDirectSelector(page, reasoningTrigger, page.getByTestId('reasoning-selector-dropdown'), 'Codex reasoning');
-  await openDirectSelector(page, speedTrigger, page.getByTestId('codex-fast-mode-dropdown'), 'Codex speed');
 
   const reasoningDropdown = page.getByTestId('reasoning-selector-dropdown');
   await reasoningTrigger.click();
@@ -382,11 +383,13 @@ test('Codex keeps context controls in the top ContextBar', async ({ page }, test
   await reasoningDropdown.getByTestId('reasoning-option-low').click();
   await expect.poll(() => page.evaluate(() => (window as unknown as { sentMessages?: string[] }).sentMessages?.includes('set_reasoning_effort:low'))).toBe(true);
 
-  await speedTrigger.click();
-  const speedDropdown = page.getByTestId('codex-fast-mode-dropdown');
-  await expect(speedDropdown).toBeVisible();
-  await speedDropdown.getByTestId('codex-fast-mode-option-fast').click();
+  await speedToggle.click();
   await expect.poll(() => page.evaluate(() => (window as unknown as { sentMessages?: string[] }).sentMessages?.includes('set_codex_fast_mode:fast'))).toBe(true);
+  await expect(speedToggle).toHaveAttribute('aria-checked', 'true');
+  await expect(left.getByTestId('codex-fast-mode-dropdown')).toHaveCount(0);
+  await speedToggle.click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { sentMessages?: string[] }).sentMessages?.includes('set_codex_fast_mode:normal'))).toBe(true);
+  await expect(speedToggle).toHaveAttribute('aria-checked', 'false');
 
   await contextToggle.click();
   await expect.poll(() => page.evaluate(() => (window as unknown as { sentMessages?: string[] }).sentMessages?.includes('set_codex_context_window:{"preset":"1m"}'))).toBe(true);
@@ -405,7 +408,7 @@ test('Codex keeps context controls in the top ContextBar', async ({ page }, test
     left.getByTestId('mode-select-trigger'),
     modelTrigger,
     reasoningTrigger,
-    speedTrigger,
+    speedToggle,
   ], 'Codex footer');
 
   await page.screenshot({ path: testInfo.outputPath('context-management.png') });

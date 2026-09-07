@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { CodexContextWindowPreset, CodexContextWindowValue } from '../types';
+import { SelectorCheckbox } from './SelectorCheckbox';
 
 interface CodexContextWindowToggleProps {
   value: CodexContextWindowValue;
@@ -42,12 +43,11 @@ export function CodexContextWindowToggle({
         if (!isDisabled) onChange(checked ? 'default' : '1m');
       }}
     >
-      <span
-        className={`codicon ${loading || saving
-          ? 'codicon-loading codicon-modifier-spin'
-          : checked ? 'codicon-check' : 'codicon-circle-outline'}`}
-        aria-hidden="true"
-      />
+      {loading || saving ? (
+        <span className="codicon codicon-loading codicon-modifier-spin" aria-hidden="true" />
+      ) : (
+        <SelectorCheckbox checked={checked} />
+      )}
       <span className="selector-button-text">
         {t('codexContextWindow.oneMillionLabel', { defaultValue: '1M' })}
       </span>

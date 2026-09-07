@@ -6,6 +6,7 @@ export { RuntimeProviderSelect } from './RuntimeProviderSelect';
 export { ConfigSelect } from './ConfigSelect';
 export { ReasoningSelect } from './ReasoningSelect';
 export { CodexFastModeSelect } from './CodexFastModeSelect';
+export { CodexFastModeToggle } from './CodexFastModeToggle';
 export { CodexContextWindowSelect } from './CodexContextWindowSelect';
 export { CodexContextWindowToggle } from './CodexContextWindowToggle';
 export { CodexContextManagementSelect } from './CodexContextManagementSelect';

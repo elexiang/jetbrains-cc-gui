@@ -17,11 +17,17 @@ describe('CodexContextWindowToggle', () => {
 
     const toggle = screen.getByRole('checkbox', { name: '1M' });
     expect(toggle.getAttribute('aria-checked')).toBe('false');
+    const checkbox = toggle.querySelector('.selector-checkbox');
+    expect(checkbox).not.toBeNull();
+    expect(checkbox?.classList.contains('is-checked')).toBe(false);
+    expect(checkbox?.querySelector('.codicon-check')).toBeNull();
     fireEvent.click(toggle);
     expect(onChange).toHaveBeenCalledWith('1m');
 
     rerender(<CodexContextWindowToggle value="1m" onChange={onChange} />);
     expect(toggle.getAttribute('aria-checked')).toBe('true');
+    expect(checkbox?.classList.contains('is-checked')).toBe(true);
+    expect(checkbox?.querySelector('.codicon-check')).not.toBeNull();
     fireEvent.click(toggle);
     expect(onChange).toHaveBeenCalledWith('default');
   });

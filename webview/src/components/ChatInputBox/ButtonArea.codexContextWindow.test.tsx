@@ -25,7 +25,7 @@ describe('ButtonArea Codex selector placement', () => {
     expect(screen.queryByTestId('model-config-trigger')).toBeNull();
     expect(screen.getByTestId('model-select-trigger')).toBeTruthy();
     expect(screen.getByTestId('reasoning-select-trigger')).toBeTruthy();
-    expect(screen.getByTestId('codex-fast-mode-trigger')).toBeTruthy();
+    expect(screen.getByRole('checkbox', { name: 'Fast' }).getAttribute('aria-checked')).toBe('false');
     expect(screen.queryByTestId('codex-context-window-toggle')).toBeNull();
     expect(screen.queryByTestId('codex-context-management-trigger')).toBeNull();
 

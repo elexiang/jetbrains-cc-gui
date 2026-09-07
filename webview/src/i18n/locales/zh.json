@@ -2406,6 +2406,7 @@
   },
   "codexFastMode": {
     "title": "选择 Codex 速度模式",
+    "toggleTitle": "启用或停用 Codex Fast 模式",
     "normal": {
       "label": "标准",
       "description": "Codex的默认响应速度"
