@@ -4,7 +4,9 @@ import { getFileIcon } from '../../utils/fileIcons';
 import { useClaudePlanUsage } from '../../hooks/useClaudePlanUsage';
 import { PlanUsageIndicator } from './PlanUsageIndicator';
 import { TokenIndicator } from './TokenIndicator';
-import type { SelectedAgent } from './types';
+import type { CodexContextWindowPreset, CodexContextWindowValue, SelectedAgent } from './types';
+import { CodexContextManagementSelect } from './selectors/CodexContextManagementSelect';
+import { CodexContextWindowToggle } from './selectors/CodexContextWindowToggle';
 
 const HIDDEN_INPUT_STYLE: React.CSSProperties = { display: 'none' };
 const CURSOR_DEFAULT_STYLE: React.CSSProperties = { cursor: 'default' };
@@ -42,6 +44,14 @@ interface ContextBarProps {
   autoOpenFileEnabled?: boolean;
   /** Callback to enable file context (called from placeholder click) */
   onRequestEnableFileContext?: () => void;
+  /** Codex-only global context controls */
+  codexContextWindow?: CodexContextWindowValue;
+  codexContextWindowLoading?: boolean;
+  codexContextWindowSaving?: boolean;
+  onCodexContextWindowChange?: (preset: CodexContextWindowPreset) => void;
+  codexContextManagement?: boolean;
+  codexContextManagementSaving?: boolean;
+  onCodexContextManagementChange?: (enabled: boolean) => void;
 }
 
 export const ContextBar: React.FC<ContextBarProps> = memo(({
@@ -62,6 +72,13 @@ export const ContextBar: React.FC<ContextBarProps> = memo(({
   onToggleStatusPanel,
   autoOpenFileEnabled = false,
   onRequestEnableFileContext,
+  codexContextWindow = 'default',
+  codexContextWindowLoading = false,
+  codexContextWindowSaving = false,
+  onCodexContextWindowChange,
+  codexContextManagement = false,
+  codexContextManagementSaving = false,
+  onCodexContextManagementChange,
 }) => {
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -179,7 +196,24 @@ export const ContextBar: React.FC<ContextBarProps> = memo(({
           onChange={handleFileChange}
           style={HIDDEN_INPUT_STYLE}
         />
-        
+        {currentProvider === 'codex' && onCodexContextWindowChange && (
+          <CodexContextWindowToggle
+            value={codexContextWindow}
+            loading={codexContextWindowLoading}
+            saving={codexContextWindowSaving}
+            disabled={codexContextManagementSaving}
+            onChange={onCodexContextWindowChange}
+          />
+        )}
+
+        {currentProvider === 'codex' && onCodexContextManagementChange && (
+          <CodexContextManagementSelect
+            enabled={codexContextManagement}
+            disabled={codexContextWindowLoading || codexContextWindowSaving || codexContextManagementSaving}
+            onChange={onCodexContextManagementChange}
+          />
+        )}
+
         <div className="context-tool-divider" />
       </div>
 

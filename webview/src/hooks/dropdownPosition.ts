@@ -1,4 +1,5 @@
 export type DropdownAlignment = 'left' | 'right';
+export type DropdownPlacement = 'above' | 'below';
 export type SubmenuSide = 'left' | 'right';
 
 export interface ViewportBox {
@@ -116,19 +117,23 @@ export function getMainDropdownLayout({
   trigger,
   viewport,
   measuredWidth,
+  measuredHeight,
   minWidth = DEFAULT_MIN_WIDTH,
   preferredAlignment = 'left',
+  preferredPlacement = 'above',
   padding = DEFAULT_PADDING,
   gap = DEFAULT_GAP,
 }: {
   trigger: TriggerBox;
   viewport: ViewportBox;
   measuredWidth?: number;
+  measuredHeight?: number;
   minWidth?: number;
   preferredAlignment?: DropdownAlignment;
+  preferredPlacement?: DropdownPlacement;
   padding?: number;
   gap?: number;
-}): { left: number; bottom: number; maxHeight: number } {
+}): { left: number; top?: number; bottom?: number; maxHeight: number; placement: DropdownPlacement } {
   const dropdownWidth = Math.min(
     Math.max(minWidth, measuredWidth ?? minWidth),
     viewport.width - (padding * 2),
@@ -143,9 +148,28 @@ export function getMainDropdownLayout({
   }
   left = Math.max(padding, Math.min(left, viewport.width - dropdownWidth - padding));
 
+  const availableAbove = Math.max(0, trigger.top - gap - padding);
+  const availableBelow = Math.max(0, viewport.height - trigger.bottom - gap - padding);
+  const desiredHeight = Math.max(
+    1,
+    measuredHeight ?? Math.min(300, Math.max(availableAbove, availableBelow)),
+  );
+  // Existing menus keep their long-standing above-trigger behavior. The
+  // top ContextBar management menu opts into below-first placement and only
+  // flips above when the lower side cannot accommodate it.
+  const placement: DropdownPlacement = preferredPlacement === 'below'
+    && (desiredHeight <= availableBelow || availableBelow >= availableAbove)
+    ? 'below'
+    : 'above';
+  const availableHeight = placement === 'below' ? availableBelow : availableAbove;
+  const maxHeight = Math.max(1, Math.min(desiredHeight, availableHeight));
+
   return {
     left,
-    bottom: viewport.height - trigger.top + gap,
-    maxHeight: Math.max(1, trigger.top - gap - padding),
+    ...(placement === 'below'
+      ? { top: trigger.bottom + gap }
+      : { bottom: viewport.height - trigger.top + gap }),
+    maxHeight,
+    placement,
   };
 }

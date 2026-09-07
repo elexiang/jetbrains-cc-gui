@@ -1,4 +1,18 @@
 {
+  "codexContextManagement": {
+    "title": "Context Management",
+    "experimental": "Experimental",
+    "description": "Enables Codex experimental context management globally for newly started sessions. Existing running sessions may not adopt the change.",
+    "selectorTitle": "Context management",
+    "newShort": "New",
+    "oldShort": "Old",
+    "newLabel": "New context management · Experimental",
+    "newDescription": "When the context approaches its limit, use experimental compaction to preserve task-relevant information and reduce context usage for longer continuous sessions. Applies only to newly started Codex sessions.",
+    "oldLabel": "Legacy context management",
+    "oldDescription": "Keep Codex's existing context-handling strategy without enabling experimental compaction. Applies only to newly started Codex sessions.",
+    "saved": "Context Management updated. New Codex sessions will use this setting.",
+    "saveFailed": "Unable to update Codex global configuration."
+  },
   "codexPet": {
     "title": "Codex pet",
     "close": "Hide pet",
@@ -2397,6 +2411,8 @@
   },
   "codexContextWindow": {
     "title": "Select Codex context window",
+    "oneMillionLabel": "1M",
+    "oneMillionDescription": "Use a 1M Codex context window; turn off to restore the default 272K window.",
     "loading": "Context…",
     "customLabel": "Custom {{value}}",
     "saved": "Codex context updated; the next message will use it",
@@ -2407,10 +2423,6 @@
     "default": {
       "label": "Default 272K",
       "description": "Remove overrides and use the official Codex default context window"
-    },
-    "500k": {
-      "label": "500K",
-      "description": "Request 500K context with automatic compaction around 450K"
     },
     "1m": {
       "label": "1M",

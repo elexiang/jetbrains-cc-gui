@@ -194,9 +194,8 @@ describe('ModelConfigSelect', () => {
     }
   });
 
-  it('keeps the personal Codex context selector in the flat model config menu', () => {
+  it('keeps the legacy Codex context row limited to the 1M toggle', () => {
     const onCodexContextWindowChange = vi.fn();
-    const onCodexContextWindowRefresh = vi.fn();
     render(
       <ModelConfigSelect
         selectedModel="gpt-5.6-sol"
@@ -206,18 +205,15 @@ describe('ModelConfigSelect', () => {
         codexContextWindow="500k"
         codexContextWindowTokens={500_000}
         onCodexContextWindowChange={onCodexContextWindowChange}
-        onCodexContextWindowRefresh={onCodexContextWindowRefresh}
       />,
     );
 
     const trigger = screen.getByTestId('model-config-trigger');
-    expect(trigger.textContent).toContain('500K');
+    expect(trigger.textContent).toContain('Default 272K');
 
     fireEvent.click(trigger);
     fireEvent.click(screen.getByTestId('model-config-option-codex-context'));
-    expect(onCodexContextWindowRefresh).toHaveBeenCalledTimes(1);
-
-    fireEvent.click(screen.getByTestId('codex-context-option-1m'));
+    fireEvent.click(screen.getByTestId('codex-context-window-toggle'));
     expect(onCodexContextWindowChange).toHaveBeenCalledWith('1m');
     expect(screen.queryByTestId('model-config-dropdown')).toBeNull();
   });

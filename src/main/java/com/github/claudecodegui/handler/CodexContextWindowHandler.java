@@ -63,6 +63,25 @@ public final class CodexContextWindowHandler {
         }
     }
 
+    /** 校验独立 Boolean 开关，不修改上下文窗口或运行中的会话。 */
+    public void handleSetContextManagement(String content) {
+        try {
+            JsonObject payload = gson.fromJson(content, JsonObject.class);
+            if (payload == null || !payload.has("enabled")
+                    || !payload.get("enabled").isJsonPrimitive()
+                    || !payload.getAsJsonPrimitive("enabled").isBoolean()) {
+                pushConfig(null, false, "Invalid Codex context management Boolean");
+                return;
+            }
+            var result = configService.updateContextManagement(payload.get("enabled").getAsBoolean());
+            if (!result.isSuccess()) {
+                pushResult(result);
+            }
+        } catch (Exception e) {
+            pushConfig(null, false, "Invalid Codex context management request");
+        }
+    }
+
     /**
      * 注销全局回调，防止窗口销毁后继续接收广播。
      */
@@ -90,6 +109,10 @@ public final class CodexContextWindowHandler {
         response.addProperty("success", success);
         if (config != null) {
             response.addProperty("preset", config.getPreset());
+            response.addProperty("contextManagement", config.isContextManagement());
+            if (config.getContextManagementError() != null) {
+                response.addProperty("contextManagementError", config.getContextManagementError());
+            }
             if (config.getContextWindow() != null) {
                 response.addProperty("contextWindow", config.getContextWindow());
             } else {

@@ -15,6 +15,51 @@ const t = ((_key: string, options?: { defaultValue?: string }) =>
   options?.defaultValue ?? _key) as unknown as TFunction;
 
 describe('useCodexProvider context-window config', () => {
+  it('keeps management independent and confirms writes from the shared snapshot', () => {
+    const addToast = vi.fn();
+    const { result } = renderHook(() => useCodexProvider({ currentProvider: 'codex', addToast, t }));
+    act(() => window.updateCodexContextWindowConfig?.({
+      success: true, preset: '1m', contextWindow: 1_000_000, contextManagement: false,
+    }));
+    act(() => result.current.handleCodexContextManagementChange(true));
+    expect(result.current.codexContextManagement).toBe(false);
+    expect(result.current.codexContextManagementSaving).toBe(true);
+    expect(result.current.codexContextWindow).toBe('1m');
+    expect(result.current.codexContextWindowSaving).toBe(false);
+    expect(sendBridgeEventMock).toHaveBeenCalledWith('set_codex_context_management', '{"enabled":true}');
+    act(() => window.updateCodexContextWindowConfig?.({
+      success: true, preset: '1m', contextWindow: 1_000_000, contextManagement: false,
+    }));
+    expect(result.current.codexContextManagementSaving).toBe(true);
+    act(() => window.updateCodexContextWindowConfig?.({
+      success: true, preset: '1m', contextWindow: 1_000_000, contextManagement: true,
+    }));
+    expect(result.current.codexContextManagement).toBe(true);
+    expect(result.current.codexContextManagementSaving).toBe(false);
+    expect(addToast).toHaveBeenCalledWith('codexContextManagement.saved', 'success');
+  });
+
+  it('retains confirmed management state on backend, bridge, and timeout failures', () => {
+    const addToast = vi.fn();
+    const { result } = renderHook(() => useCodexProvider({ currentProvider: 'codex', addToast, t }));
+    act(() => window.updateCodexContextWindowConfig?.({ success: true, preset: 'default', contextManagement: true }));
+    act(() => result.current.handleCodexContextManagementChange(false));
+    act(() => window.updateCodexContextWindowConfig?.({ success: false, error: 'Malformed TOML' }));
+    expect(result.current.codexContextManagement).toBe(true);
+    expect(result.current.codexContextManagementSaving).toBe(false);
+    expect(addToast).toHaveBeenCalledWith('Malformed TOML', 'error');
+    sendBridgeEventMock.mockReturnValue(false);
+    act(() => result.current.handleCodexContextManagementChange(false));
+    expect(result.current.codexContextManagement).toBe(true);
+    expect(result.current.codexContextManagementSaving).toBe(false);
+    sendBridgeEventMock.mockReturnValue(true);
+    act(() => result.current.handleCodexContextManagementChange(false));
+    act(() => vi.advanceTimersByTime(10_001));
+    expect(result.current.codexContextManagement).toBe(true);
+    expect(result.current.codexContextManagementSaving).toBe(false);
+    expect(addToast).toHaveBeenCalledWith('codexContextManagement.saveFailed', 'error');
+  });
+
   beforeEach(() => {
     vi.useFakeTimers();
     sendBridgeEventMock.mockClear();

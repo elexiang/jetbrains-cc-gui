@@ -101,12 +101,12 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
       onReasoningChange,
       codexFastMode = 'normal',
       onCodexFastModeChange,
+      codexContextManagement, codexContextManagementSaving,
+      onCodexContextManagementChange,
       codexContextWindow = 'default',
-      codexContextWindowTokens = 272_000,
       codexContextWindowLoading = false,
       codexContextWindowSaving = false,
       onCodexContextWindowChange,
-      onCodexContextWindowRefresh,
       dshPreset,
       onDshPresetChange,
       activeFile,
@@ -696,6 +696,13 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
           onDismissOpenSourceBanner={handleDismissOpenSourceBanner}
           autoOpenFileEnabled={autoOpenFileEnabled}
           onRequestEnableFileContext={handleRequestEnableFileContext}
+          codexContextWindow={codexContextWindow}
+          codexContextWindowLoading={codexContextWindowLoading}
+          codexContextWindowSaving={codexContextWindowSaving}
+          onCodexContextWindowChange={onCodexContextWindowChange}
+          codexContextManagement={codexContextManagement}
+          codexContextManagementSaving={codexContextManagementSaving}
+          onCodexContextManagementChange={onCodexContextManagementChange}
         />
 
         {/* Input area */}
@@ -789,9 +796,6 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
           codexNativeAutoReviewAvailable={codexNativeAutoReviewAvailable}
           reasoningEffort={reasoningEffort}
           codexFastMode={codexFastMode}
-          codexContextWindow={codexContextWindow}
-          codexContextWindowTokens={codexContextWindowTokens}
-          codexContextWindowLoading={codexContextWindowLoading}
           codexContextWindowSaving={codexContextWindowSaving}
           dshPreset={dshPreset}
           onSubmit={handleSubmit}
@@ -801,8 +805,6 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
           onProviderSelect={onProviderSelect}
           onReasoningChange={onReasoningChange}
           onCodexFastModeChange={onCodexFastModeChange}
-          onCodexContextWindowChange={onCodexContextWindowChange}
-          onCodexContextWindowRefresh={onCodexContextWindowRefresh}
           onDshPresetChange={onDshPresetChange}
           onEnhancePrompt={handleEnhancePrompt}
           alwaysThinkingEnabled={alwaysThinkingEnabled}

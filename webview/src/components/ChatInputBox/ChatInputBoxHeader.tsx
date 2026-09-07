@@ -1,5 +1,11 @@
 import type { TFunction } from 'i18next';
-import type { Attachment, SelectedAgent, QueuedMessage } from './types.js';
+import type {
+  Attachment,
+  CodexContextWindowPreset,
+  CodexContextWindowValue,
+  SelectedAgent,
+  QueuedMessage,
+} from './types.js';
 import { AttachmentList } from './AttachmentList.js';
 import { ContextBar } from './ContextBar.js';
 import { MessageQueue } from './MessageQueue.js';
@@ -35,6 +41,13 @@ export function ChatInputBoxHeader({
   onDismissOpenSourceBanner,
   autoOpenFileEnabled,
   onRequestEnableFileContext,
+  codexContextWindow,
+  codexContextWindowLoading,
+  codexContextWindowSaving,
+  onCodexContextWindowChange,
+  codexContextManagement,
+  codexContextManagementSaving,
+  onCodexContextManagementChange,
 }: {
   sdkInstalled: boolean;
   sdkStatusLoading: boolean;
@@ -65,6 +78,13 @@ export function ChatInputBoxHeader({
   onDismissOpenSourceBanner?: () => void;
   autoOpenFileEnabled?: boolean;
   onRequestEnableFileContext?: () => void;
+  codexContextWindow?: CodexContextWindowValue;
+  codexContextWindowLoading?: boolean;
+  codexContextWindowSaving?: boolean;
+  onCodexContextWindowChange?: (preset: CodexContextWindowPreset) => void;
+  codexContextManagement?: boolean;
+  codexContextManagementSaving?: boolean;
+  onCodexContextManagementChange?: (enabled: boolean) => void;
 }) {
   const handleStarProject = () => {
     openBrowser(GITHUB_REPO_URL);
@@ -175,6 +195,13 @@ export function ChatInputBoxHeader({
         onToggleStatusPanel={onToggleStatusPanel}
         autoOpenFileEnabled={autoOpenFileEnabled}
         onRequestEnableFileContext={onRequestEnableFileContext}
+        codexContextWindow={codexContextWindow}
+        codexContextWindowLoading={codexContextWindowLoading}
+        codexContextWindowSaving={codexContextWindowSaving}
+        onCodexContextWindowChange={onCodexContextWindowChange}
+        codexContextManagement={codexContextManagement}
+        codexContextManagementSaving={codexContextManagementSaving}
+        onCodexContextManagementChange={onCodexContextManagementChange}
       />
     </>
   );

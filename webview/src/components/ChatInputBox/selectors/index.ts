@@ -7,5 +7,7 @@ export { ConfigSelect } from './ConfigSelect';
 export { ReasoningSelect } from './ReasoningSelect';
 export { CodexFastModeSelect } from './CodexFastModeSelect';
 export { CodexContextWindowSelect } from './CodexContextWindowSelect';
+export { CodexContextWindowToggle } from './CodexContextWindowToggle';
+export { CodexContextManagementSelect } from './CodexContextManagementSelect';
 export { LongContextToggle } from './LongContextToggle';
 export { default as DshPresetSelect } from './DshPresetSelect';

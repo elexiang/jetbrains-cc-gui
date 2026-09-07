@@ -25,7 +25,7 @@ import {
   type ReasoningEffort,
 } from '../types';
 import { CodexFastModeSelect } from './CodexFastModeSelect';
-import { CodexContextWindowSelect, formatTokenCount } from './CodexContextWindowSelect';
+import { CodexContextWindowSelect } from './CodexContextWindowSelect';
 import { DshPresetSelect } from './DshPresetSelect';
 import { ModelSelect } from './ModelSelect';
 import { ReasoningSelect } from './ReasoningSelect';
@@ -258,14 +258,9 @@ export const ModelConfigSelect = ({
   });
   const codexContextLabel = codexContextWindowLoading
     ? t('codexContextWindow.loading', { defaultValue: 'Context…' })
-    : codexContextWindow === 'custom'
-      ? t('codexContextWindow.customLabel', {
-          value: formatTokenCount(codexContextWindowTokens) || '?',
-          defaultValue: 'Custom {{value}}',
-        })
-      : t(`codexContextWindow.${codexContextWindow}.label`, {
-          defaultValue: codexContextWindow === '1m' ? '1M' : codexContextWindow === '500k' ? '500K' : 'Default 272K',
-        });
+    : t('codexContextWindow.oneMillionLabel', {
+        defaultValue: codexContextWindow === '1m' ? '1M' : 'Default 272K',
+      });
   const summaryParts = [
     modelLabel,
     show1MContext ? t('models.longContext.label', { defaultValue: '1M' }) : '',

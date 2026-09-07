@@ -6,12 +6,14 @@ import {
   isSubmenuHeightClipped,
   toViewportTrigger,
   type DropdownAlignment,
+  type DropdownPlacement,
 } from './dropdownPosition';
 
 interface UseDropdownPositionOptions {
   buttonRef: RefObject<HTMLElement | null>;
   dropdownRef?: RefObject<HTMLElement | null>;
   preferredAlignment?: DropdownAlignment;
+  preferredPlacement?: DropdownPlacement;
   minWidth?: number;
   maxWidth?: number;
   submenuMaxHeight?: number;
@@ -27,6 +29,7 @@ interface PositionState {
   maxWidth?: number;
   submenuSide?: 'right' | 'left';
   submenuOverlap?: number;
+  placement?: DropdownPlacement;
 }
 
 const FALLBACK_ABSOLUTE_LEFT: CSSProperties = {
@@ -47,6 +50,16 @@ const FALLBACK_ABSOLUTE_RIGHT: CSSProperties = {
   ['--selector-enter-y' as string]: '6px',
 };
 
+const FALLBACK_ABSOLUTE_BELOW: CSSProperties = {
+  position: 'absolute',
+  top: '100%',
+  marginTop: '4px',
+  left: 0,
+  zIndex: 10000,
+  ['--selector-enter-x' as string]: '0px',
+  ['--selector-enter-y' as string]: '-6px',
+};
+
 const FALLBACK_SUBMENU_RIGHT: CSSProperties = {
   position: 'absolute',
   top: 0,
@@ -60,6 +73,7 @@ export function useDropdownPosition({
   buttonRef,
   dropdownRef,
   preferredAlignment = 'left',
+  preferredPlacement = 'above',
   minWidth = 200,
   maxWidth = 360,
   submenuMaxHeight = 300,
@@ -126,38 +140,49 @@ export function useDropdownPosition({
     }
 
     const measuredWidth = dropdown ? dropdown.getBoundingClientRect().width : minWidth;
+    const measuredHeight = dropdown
+      ? Math.max(dropdown.getBoundingClientRect().height, dropdown.scrollHeight)
+      : undefined;
     const layout = getMainDropdownLayout({
       trigger,
       viewport,
       measuredWidth,
+      measuredHeight,
       minWidth,
       preferredAlignment,
+      preferredPlacement,
     });
 
     setPositionState((current) => {
       if (
         current
         && current.left === layout.left
+        && current.top === layout.top
         && current.bottom === layout.bottom
         && current.maxHeight === layout.maxHeight
+        && current.placement === layout.placement
       ) {
         return current;
       }
       return {
         left: layout.left,
+        top: layout.top,
         bottom: layout.bottom,
         maxHeight: layout.maxHeight,
         submenuSide: 'right',
+        placement: layout.placement,
       };
     });
-  }, [buttonRef, dropdownRef, preferredAlignment, minWidth, maxWidth, submenu, submenuBottomClearance, submenuMaxHeight]);
+  }, [buttonRef, dropdownRef, preferredAlignment, preferredPlacement, minWidth, maxWidth, submenu, submenuBottomClearance, submenuMaxHeight]);
 
   if (!positionState) {
     if (submenu) {
       return { positionedStyle: FALLBACK_SUBMENU_RIGHT, maxHeight: undefined, maxWidth: undefined, recalculate };
     }
     return {
-      positionedStyle: preferredAlignment === 'left' ? FALLBACK_ABSOLUTE_LEFT : FALLBACK_ABSOLUTE_RIGHT,
+      positionedStyle: preferredPlacement === 'below'
+        ? FALLBACK_ABSOLUTE_BELOW
+        : preferredAlignment === 'left' ? FALLBACK_ABSOLUTE_LEFT : FALLBACK_ABSOLUTE_RIGHT,
       maxHeight: undefined,
       maxWidth: undefined,
       recalculate,
@@ -187,14 +212,27 @@ export function useDropdownPosition({
   }
 
   const { fixedPosDivisor } = getAppViewport();
+  const isBelow = positionState.placement === 'below';
   return {
     positionedStyle: {
       position: 'fixed',
       left: (positionState.left ?? 0) / fixedPosDivisor,
-      bottom: (positionState.bottom ?? 0) / fixedPosDivisor,
+      ...(isBelow
+        ? {
+            top: (positionState.top ?? 0) / fixedPosDivisor,
+            bottom: 'auto',
+            marginTop: '4px',
+            marginBottom: 0,
+          }
+        : {
+            top: 'auto',
+            bottom: (positionState.bottom ?? 0) / fixedPosDivisor,
+            marginTop: 0,
+            marginBottom: '4px',
+          }),
       zIndex: 10000,
       ['--selector-enter-x' as string]: '0px',
-      ['--selector-enter-y' as string]: '6px',
+      ['--selector-enter-y' as string]: isBelow ? '-6px' : '6px',
     },
     maxHeight: (positionState.maxHeight ?? 0) / fixedPosDivisor,
     maxWidth: undefined,

@@ -97,6 +97,9 @@ export interface ChatScreenProps {
   claudeSettingsAlwaysThinkingEnabled: ProviderState['claudeSettingsAlwaysThinkingEnabled'];
   reasoningEffort: ProviderState['reasoningEffort'];
   codexFastMode: ProviderState['codexFastMode'];
+  codexContextManagement: ProviderState['codexContextManagement'];
+  codexContextManagementSaving: ProviderState['codexContextManagementSaving'];
+  onCodexContextManagementChange: (enabled: boolean) => void;
   codexContextWindow: ProviderState['codexContextWindow'];
   codexContextWindowTokens: ProviderState['codexContextWindowTokens'];
   codexContextWindowLoading: ProviderState['codexContextWindowLoading'];
@@ -153,6 +156,8 @@ export const ChatScreen = ({
   sdkStatusLoading, sdkStatusError, onRetrySdkStatus, currentSdkInstalled,
   activeProviderConfig, claudeSettingsAlwaysThinkingEnabled,
   reasoningEffort, codexFastMode,
+  codexContextManagement, codexContextManagementSaving,
+  onCodexContextManagementChange,
   codexContextWindow, codexContextWindowTokens,
   codexContextWindowLoading, codexContextWindowSaving,
   dshPreset, streamingEnabledSetting, sendShortcut, autoOpenFileEnabled,
@@ -377,6 +382,9 @@ export const ChatScreen = ({
           onReasoningChange={onReasoningChange}
           codexFastMode={codexFastMode}
           onCodexFastModeChange={onCodexFastModeChange}
+          codexContextManagement={codexContextManagement}
+          codexContextManagementSaving={codexContextManagementSaving}
+          onCodexContextManagementChange={onCodexContextManagementChange}
           codexContextWindow={codexContextWindow}
           codexContextWindowTokens={codexContextWindowTokens}
           codexContextWindowLoading={codexContextWindowLoading}

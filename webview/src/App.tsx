@@ -164,6 +164,8 @@ const App = () => {
     currentProviderRef,
     activeProviderConfig, claudeSettingsAlwaysThinkingEnabled,
     reasoningEffort, codexFastMode,
+    codexContextManagement, codexContextManagementSaving,
+    handleCodexContextManagementChange,
     codexContextWindow, codexContextWindowTokens,
     codexContextWindowLoading, codexContextWindowSaving,
     dshPreset, streamingEnabledSetting, sendShortcut, autoOpenFileEnabled,
@@ -662,6 +664,9 @@ const App = () => {
               claudeSettingsAlwaysThinkingEnabled={claudeSettingsAlwaysThinkingEnabled}
               reasoningEffort={reasoningEffort}
               codexFastMode={codexFastMode}
+              codexContextManagement={codexContextManagement}
+              codexContextManagementSaving={codexContextManagementSaving}
+              onCodexContextManagementChange={handleCodexContextManagementChange}
               codexContextWindow={codexContextWindow}
               codexContextWindowTokens={codexContextWindowTokens}
               codexContextWindowLoading={codexContextWindowLoading}

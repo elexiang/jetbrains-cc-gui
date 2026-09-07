@@ -152,6 +152,24 @@ async function installBridgeMocks(page: Page, customModels = [LONG_MODEL], provi
           custom: false,
         });
       }
+      if (message.startsWith('set_codex_context_management:')) {
+        const content = message.slice('set_codex_context_management:'.length);
+        let enabled = false;
+        try {
+          const parsed = JSON.parse(content) as { enabled?: boolean };
+          enabled = parsed.enabled === true;
+        } catch {
+          // Keep the legacy fixture response for malformed test payloads.
+        }
+        respond('updateCodexContextWindowConfig', {
+          success: true,
+          preset: 'default',
+          contextWindow: 272_000,
+          autoCompactTokenLimit: 244_800,
+          contextManagement: enabled,
+          custom: false,
+        });
+      }
     };
   }, {
     processSnapshot: NODE_PROCESS_SNAPSHOT,
@@ -319,7 +337,7 @@ test('footer selector menus render inside the viewport', async ({ page }) => {
   expect(significantErrors(errors)).toEqual([]);
 });
 
-test('Codex keeps model, reasoning, speed, and context as direct footer entries', async ({ page }) => {
+test('Codex keeps context controls in the top ContextBar', async ({ page }, testInfo) => {
   const errors = collectPageErrors(page);
   await page.goto('/');
   await expect(page.locator('.button-area').first()).toHaveAttribute('data-provider', 'codex');
@@ -333,14 +351,26 @@ test('Codex keeps model, reasoning, speed, and context as direct footer entries'
   })));
 
   const left = page.locator('.button-area-left');
+  const contextBar = page.locator('.context-bar');
   const modelTrigger = left.getByTestId('model-select-trigger');
   const reasoningTrigger = left.getByTestId('reasoning-select-trigger');
   const speedTrigger = left.getByTestId('codex-fast-mode-trigger');
-  const contextTrigger = left.getByTestId('codex-context-window-trigger');
+  const contextToggle = contextBar.getByTestId('codex-context-window-toggle');
+  const managementTrigger = contextBar.getByTestId('codex-context-management-trigger');
   await expect(modelTrigger).toBeVisible();
   await expect(reasoningTrigger).toBeVisible();
   await expect(speedTrigger).toBeVisible();
-  await expect(contextTrigger).toBeVisible();
+  await expect(contextToggle).toBeVisible();
+  await expect(managementTrigger).toBeVisible();
+  await expect(managementTrigger).toHaveText(/^(Old|旧|舊)$/);
+  await managementTrigger.click();
+  const managementDropdown = page.getByTestId('codex-context-management-dropdown');
+  await expect(managementDropdown).toBeVisible();
+  await expectInsideViewport(page, managementDropdown, 'Codex context management');
+  await managementDropdown.getByTestId('codex-context-management-option-new').click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { sentMessages?: string[] })
+    .sentMessages?.includes('set_codex_context_management:{"enabled":true}'))).toBe(true);
+  await expect(managementTrigger).toHaveText(/^(New|新)$/);
 
   await openDirectSelector(page, modelTrigger, page.getByTestId('model-selector-dropdown'), 'Codex model');
   await openDirectSelector(page, reasoningTrigger, page.getByTestId('reasoning-selector-dropdown'), 'Codex reasoning');
@@ -358,13 +388,16 @@ test('Codex keeps model, reasoning, speed, and context as direct footer entries'
   await speedDropdown.getByTestId('codex-fast-mode-option-fast').click();
   await expect.poll(() => page.evaluate(() => (window as unknown as { sentMessages?: string[] }).sentMessages?.includes('set_codex_fast_mode:fast'))).toBe(true);
 
-  await contextTrigger.click();
-  const contextDropdown = page.locator('.selector-dropdown[role="listbox"]');
-  await expect(contextDropdown).toBeVisible();
-  await expectInsideViewport(page, contextDropdown, 'Codex context');
-  await contextDropdown.getByTestId('codex-context-option-1m').click();
-  await expect(contextDropdown).toBeHidden();
+  await contextToggle.click();
   await expect.poll(() => page.evaluate(() => (window as unknown as { sentMessages?: string[] }).sentMessages?.includes('set_codex_context_window:{"preset":"1m"}'))).toBe(true);
+  await expect(contextToggle).toHaveAttribute('aria-checked', 'true');
+  await contextToggle.click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { sentMessages?: string[] }).sentMessages?.includes('set_codex_context_window:{"preset":"default"}'))).toBe(true);
+  await expect(contextToggle).toHaveAttribute('aria-checked', 'false');
+  await expect(page.getByText('500K', { exact: true })).toHaveCount(0);
+
+  await expect(left.getByTestId('codex-context-window-toggle')).toHaveCount(0);
+  await expect(left.getByTestId('codex-context-management-trigger')).toHaveCount(0);
 
   await expectNoFooterOverlap(page, [
     left.getByTestId('config-select-trigger'),
@@ -373,8 +406,9 @@ test('Codex keeps model, reasoning, speed, and context as direct footer entries'
     modelTrigger,
     reasoningTrigger,
     speedTrigger,
-    contextTrigger,
   ], 'Codex footer');
+
+  await page.screenshot({ path: testInfo.outputPath('context-management.png') });
 
   expect(significantErrors(errors)).toEqual([]);
 });

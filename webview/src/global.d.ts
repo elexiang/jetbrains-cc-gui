@@ -1133,6 +1133,8 @@ interface Window {
       | string
       | {
           success?: boolean;
+          contextManagement?: boolean | null;
+          contextManagementError?: string;
           preset?: string;
           contextWindow?: number | null;
           autoCompactTokenLimit?: number | null;

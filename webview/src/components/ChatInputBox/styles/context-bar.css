@@ -22,6 +22,30 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  overflow: visible;
+}
+
+/* Compact Codex controls live beside the usage indicator in the top bar. */
+.context-bar-selector-wrapper,
+.context-bar-selector {
+  flex-shrink: 0;
+}
+
+.context-bar-selector {
+  padding: 2px 4px;
+  font-size: 11px;
+}
+
+.context-bar-selector .codicon {
+  font-size: 12px;
+}
+
+.codex-context-window-toggle[aria-checked="true"] {
+  color: var(--text-primary);
+}
+
+.codex-context-management-dropdown {
+  min-width: 300px;
 }
 
 .context-token-indicator {

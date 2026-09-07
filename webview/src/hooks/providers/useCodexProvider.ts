@@ -25,6 +25,8 @@ interface CodexContextWindowPayload {
   contextWindow?: unknown;
   autoCompactTokenLimit?: unknown;
   custom?: unknown;
+  contextManagement?: unknown;
+  contextManagementError?: unknown;
   error?: unknown;
 }
 
@@ -74,6 +76,10 @@ export function useCodexProvider({ currentProvider, addToast, t }: UseCodexProvi
   const [codexAutoCompactTokenLimit, setCodexAutoCompactTokenLimit] = useState<number | null>(244_800);
   const [codexContextWindowLoading, setCodexContextWindowLoading] = useState(true);
   const [codexContextWindowSaving, setCodexContextWindowSaving] = useState(false);
+  const [codexContextManagement, setCodexContextManagement] = useState(false);
+  const [codexContextManagementSaving, setCodexContextManagementSaving] = useState(false);
+  const pendingManagementRef = useRef<boolean | null>(null);
+  const managementTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastConfirmedContextRef = useRef<ConfirmedContextWindowConfig>(DEFAULT_CONTEXT_WINDOW_CONFIG);
   const pendingPresetRef = useRef<CodexContextWindowPreset | null>(null);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -100,6 +106,23 @@ export function useCodexProvider({ currentProvider, addToast, t }: UseCodexProvi
     const handleConfig = (dataOrString: string | CodexContextWindowPayload) => {
       const payload = parseContextWindowPayload(dataOrString);
       if (!payload) return;
+      if (payload.success !== false && typeof payload.contextManagementError === 'string') {
+        addToast(payload.contextManagementError, 'error');
+      }
+      if (typeof payload.contextManagement === 'boolean') {
+        setCodexContextManagement(payload.contextManagement);
+      }
+      if (payload.success === false || (pendingManagementRef.current !== null
+          && payload.contextManagement === pendingManagementRef.current)) {
+        const wasSaving = pendingManagementRef.current !== null;
+        pendingManagementRef.current = null;
+        setCodexContextManagementSaving(false);
+        if (managementTimeoutRef.current) clearTimeout(managementTimeoutRef.current);
+        managementTimeoutRef.current = null;
+        if (wasSaving && payload.success !== false) {
+          addToast(t('codexContextManagement.saved'), 'success');
+        }
+      }
 
       const value = isContextWindowValue(payload.preset) ? payload.preset : null;
       const authoritativeConfig = value ? {
@@ -169,6 +192,7 @@ export function useCodexProvider({ currentProvider, addToast, t }: UseCodexProvi
     return () => {
       if (retryTimer) clearTimeout(retryTimer);
       clearSaveTimeout();
+      if (managementTimeoutRef.current) clearTimeout(managementTimeoutRef.current);
       if (window.updateCodexContextWindowConfig === handleConfig) {
         delete window.updateCodexContextWindowConfig;
       }
@@ -180,6 +204,26 @@ export function useCodexProvider({ currentProvider, addToast, t }: UseCodexProvi
       refreshCodexContextWindow();
     }
   }, [currentProvider, refreshCodexContextWindow]);
+
+  const handleCodexContextManagementChange = useCallback((enabled: boolean) => {
+    if (pendingManagementRef.current !== null) return;
+    pendingManagementRef.current = enabled;
+    setCodexContextManagementSaving(true);
+    // Keep the confirmed state visible until the backend acknowledges the write.
+    if (!sendBridgeEvent('set_codex_context_management', JSON.stringify({ enabled }))) {
+      pendingManagementRef.current = null;
+      setCodexContextManagementSaving(false);
+      addToast(t('codexContextManagement.saveFailed'), 'error');
+      return;
+    }
+    managementTimeoutRef.current = setTimeout(() => {
+      pendingManagementRef.current = null;
+      managementTimeoutRef.current = null;
+      setCodexContextManagementSaving(false);
+      addToast(t('codexContextManagement.saveFailed'), 'error');
+      refreshCodexContextWindow();
+    }, CONTEXT_CONFIG_SAVE_TIMEOUT_MS);
+  }, [addToast, refreshCodexContextWindow, t]);
 
   const handleReasoningChange = useCallback((effort: ReasoningEffort) => {
     setReasoningEffort(effort);
@@ -248,6 +292,9 @@ export function useCodexProvider({ currentProvider, addToast, t }: UseCodexProvi
     setReasoningEffort,
     codexFastMode,
     setCodexFastMode,
+    codexContextManagement,
+    codexContextManagementSaving,
+    handleCodexContextManagementChange,
     codexContextWindow,
     codexContextWindowTokens,
     codexAutoCompactTokenLimit,

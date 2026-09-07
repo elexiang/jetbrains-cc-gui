@@ -1,7 +1,5 @@
 import type { TFunction } from 'i18next';
 import type {
-  CodexContextWindowPreset,
-  CodexContextWindowValue,
   CodexFastMode,
   DropdownItemData,
   DropdownPosition,
@@ -36,9 +34,6 @@ export function ChatInputBoxFooter({
   codexNativeAutoReviewAvailable = true,
   reasoningEffort,
   codexFastMode,
-  codexContextWindow,
-  codexContextWindowTokens,
-  codexContextWindowLoading,
   codexContextWindowSaving,
   dshPreset,
   onSubmit,
@@ -48,8 +43,6 @@ export function ChatInputBoxFooter({
   onProviderSelect,
   onReasoningChange,
   onCodexFastModeChange,
-  onCodexContextWindowChange,
-  onCodexContextWindowRefresh,
   onDshPresetChange,
   onEnhancePrompt,
   alwaysThinkingEnabled,
@@ -83,9 +76,6 @@ export function ChatInputBoxFooter({
   codexNativeAutoReviewAvailable?: boolean;
   reasoningEffort: ReasoningEffort;
   codexFastMode?: CodexFastMode;
-  codexContextWindow?: CodexContextWindowValue;
-  codexContextWindowTokens?: number | null;
-  codexContextWindowLoading?: boolean;
   codexContextWindowSaving?: boolean;
   dshPreset?: string;
   onSubmit: () => void;
@@ -95,8 +85,6 @@ export function ChatInputBoxFooter({
   onProviderSelect?: (providerId: string) => void;
   onReasoningChange?: (effort: ReasoningEffort) => void;
   onCodexFastModeChange?: (mode: CodexFastMode) => void;
-  onCodexContextWindowChange?: (preset: CodexContextWindowPreset) => void;
-  onCodexContextWindowRefresh?: () => void;
   onDshPresetChange?: (preset: string) => void;
   onEnhancePrompt: () => void;
   alwaysThinkingEnabled?: boolean;
@@ -148,10 +136,6 @@ export function ChatInputBoxFooter({
         codexNativeAutoReviewAvailable={codexNativeAutoReviewAvailable}
         reasoningEffort={reasoningEffort}
         codexFastMode={codexFastMode}
-        codexContextWindow={codexContextWindow}
-        codexContextWindowTokens={codexContextWindowTokens}
-        codexContextWindowLoading={codexContextWindowLoading}
-        codexContextWindowSaving={codexContextWindowSaving}
         dshPreset={dshPreset}
         onSubmit={onSubmit}
         onStop={onStop}
@@ -160,8 +144,6 @@ export function ChatInputBoxFooter({
         onProviderSelect={onProviderSelect}
         onReasoningChange={onReasoningChange}
         onCodexFastModeChange={onCodexFastModeChange}
-        onCodexContextWindowChange={onCodexContextWindowChange}
-        onCodexContextWindowRefresh={onCodexContextWindowRefresh}
         onDshPresetChange={onDshPresetChange}
         onEnhancePrompt={onEnhancePrompt}
         alwaysThinkingEnabled={alwaysThinkingEnabled}

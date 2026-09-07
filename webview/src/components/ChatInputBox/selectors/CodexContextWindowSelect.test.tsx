@@ -1,73 +1,48 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { CodexContextWindowSelect } from './CodexContextWindowSelect';
+import { CodexContextWindowToggle } from './CodexContextWindowToggle';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (_key: string, options?: { defaultValue?: string; value?: string }) => {
-      const fallback = options?.defaultValue ?? _key;
-      return fallback.replace('{{value}}', options?.value ?? '');
-    },
+    t: (_key: string, options?: { defaultValue?: string }) => options?.defaultValue ?? _key,
   }),
 }));
 
-describe('CodexContextWindowSelect', () => {
-  it('shows exactly three presets and refreshes when opened', () => {
+describe('CodexContextWindowToggle', () => {
+  it('maps the checkbox to the default and 1M presets only', () => {
     const onChange = vi.fn();
-    const onRefresh = vi.fn();
-    render(
-      <CodexContextWindowSelect
-        value="default"
-        contextWindowTokens={272_000}
-        onChange={onChange}
-        onRefresh={onRefresh}
-      />,
+    const { rerender } = render(
+      <CodexContextWindowToggle value="default" onChange={onChange} />,
     );
 
-    fireEvent.click(screen.getByRole('button'));
+    const toggle = screen.getByRole('checkbox', { name: '1M' });
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+    fireEvent.click(toggle);
+    expect(onChange).toHaveBeenCalledWith('1m');
 
-    expect(onRefresh).toHaveBeenCalledTimes(1);
-    expect(screen.getAllByRole('option')).toHaveLength(3);
-    expect(screen.getAllByText('Default 272K').length).toBeGreaterThan(0);
-    expect(screen.getByText('500K')).toBeTruthy();
-    expect(screen.getByText('1M')).toBeTruthy();
-
-    fireEvent.click(screen.getByTestId('codex-context-option-500k'));
-    expect(onChange).toHaveBeenCalledWith('500k');
+    rerender(<CodexContextWindowToggle value="1m" onChange={onChange} />);
+    expect(toggle.getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(toggle);
+    expect(onChange).toHaveBeenCalledWith('default');
   });
 
-  it('shows a non-selectable custom value without adding a fourth option', () => {
-    render(
-      <CodexContextWindowSelect
-        value="custom"
-        contextWindowTokens={640_000}
-        onChange={vi.fn()}
-      />,
-    );
+  it('treats a legacy non-1M value as unchecked until the user changes it', () => {
+    const onChange = vi.fn();
+    render(<CodexContextWindowToggle value="500k" onChange={onChange} />);
 
-    expect(screen.getByText('Custom 640K')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button'));
-    expect(screen.getAllByRole('option')).toHaveLength(3);
+    const toggle = screen.getByRole('checkbox', { name: '1M' });
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+    fireEvent.click(toggle);
+    expect(onChange).toHaveBeenCalledWith('1m');
   });
 
   it('disables interaction while loading or saving', () => {
     const { rerender } = render(
-      <CodexContextWindowSelect
-        value="default"
-        loading
-        onChange={vi.fn()}
-      />,
+      <CodexContextWindowToggle value="default" loading onChange={vi.fn()} />,
     );
+    expect(screen.getByRole('checkbox', { name: '1M' })).toHaveProperty('disabled', true);
 
-    expect(screen.getByRole('button')).toHaveProperty('disabled', true);
-
-    rerender(
-      <CodexContextWindowSelect
-        value="1m"
-        saving
-        onChange={vi.fn()}
-      />,
-    );
-    expect(screen.getByRole('button')).toHaveProperty('disabled', true);
+    rerender(<CodexContextWindowToggle value="1m" saving onChange={vi.fn()} />);
+    expect(screen.getByRole('checkbox', { name: '1M' })).toHaveProperty('disabled', true);
   });
 });

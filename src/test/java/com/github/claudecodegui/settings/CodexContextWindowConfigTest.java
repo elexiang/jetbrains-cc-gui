@@ -149,6 +149,32 @@ public class CodexContextWindowConfigTest {
     }
 
     @Test
+    public void serviceMigratesLegacy500kToDefaultOnInitialRead() throws Exception {
+        Path codexDir = Files.createTempDirectory("codex-context-migrate-500k");
+        Path configPath = codexDir.resolve("config.toml");
+        CodexSettingsManager manager = new CodexSettingsManager(new Gson(), codexDir);
+        manager.updateContextWindowPreset("500k");
+        String before = Files.readString(configPath, StandardCharsets.UTF_8);
+        assertTrue(before.contains("model_context_window = 500000"));
+
+        CodexContextWindowConfigService service =
+                CodexContextWindowConfigService.createForTests(manager);
+        AtomicInteger callbacks = new AtomicInteger();
+        service.registerCallback(config -> callbacks.incrementAndGet());
+
+        CodexContextWindowConfigService.OperationResult result = service.readCurrent();
+
+        assertTrue(result.isSuccess());
+        assertEquals("default", result.getConfig().getPreset());
+        String migrated = Files.readString(configPath, StandardCharsets.UTF_8);
+        assertFalse(migrated.contains("model_context_window = 500000"));
+        assertFalse(migrated.contains("model_auto_compact_token_limit = 450000"));
+        assertEquals(1, callbacks.get());
+        assertEquals("default", service.readCurrent().getConfig().getPreset());
+        assertEquals(1, callbacks.get());
+    }
+
+    @Test
     public void invalidPresetLeavesConfigUnchanged() throws Exception {
         Path codexDir = Files.createTempDirectory("codex-context-invalid");
         Path configPath = codexDir.resolve("config.toml");

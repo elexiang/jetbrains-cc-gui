@@ -875,22 +875,26 @@ export interface ChatInputBoxProps {
   onReasoningChange?: (effort: ReasoningEffort) => void;
   /** Codex speed mode */
   codexFastMode?: CodexFastMode;
+  /** Independent global experimental context management setting */
+  codexContextManagement?: boolean;
+  codexContextManagementSaving?: boolean;
+  onCodexContextManagementChange?: (enabled: boolean) => void;
   /** Current Codex context-window selection */
   codexContextWindow?: CodexContextWindowValue;
-  /** Raw configured context-window tokens (used for custom display) */
+  /** Raw configured context-window tokens (used for migration/display) */
   codexContextWindowTokens?: number | null;
   /** Whether the global Codex context config is loading */
   codexContextWindowLoading?: boolean;
   /** Whether the global Codex context config is being saved */
   codexContextWindowSaving?: boolean;
-  /** DSH agent preset */
-  dshPreset?: string;
-  /** Switch Codex speed mode callback */
-  onCodexFastModeChange?: (mode: CodexFastMode) => void;
   /** Switch Codex context-window preset */
   onCodexContextWindowChange?: (preset: CodexContextWindowPreset) => void;
   /** Refresh Codex context-window config from disk */
   onCodexContextWindowRefresh?: () => void;
+  /** DSH agent preset */
+  dshPreset?: string;
+  /** Switch Codex speed mode callback */
+  onCodexFastModeChange?: (mode: CodexFastMode) => void;
   /** Switch DSH agent preset callback */
   onDshPresetChange?: (preset: string) => void;
   /** Toggle thinking mode */
@@ -980,14 +984,6 @@ export interface ButtonAreaProps {
   reasoningEffort?: ReasoningEffort;
   /** Codex speed mode */
   codexFastMode?: CodexFastMode;
-  /** Current Codex context-window selection */
-  codexContextWindow?: CodexContextWindowValue;
-  /** Raw configured context-window tokens (used for custom display) */
-  codexContextWindowTokens?: number | null;
-  /** Whether the global Codex context config is loading */
-  codexContextWindowLoading?: boolean;
-  /** Whether the global Codex context config is being saved */
-  codexContextWindowSaving?: boolean;
   /** DSH agent preset */
   dshPreset?: string;
 
@@ -1001,10 +997,6 @@ export interface ButtonAreaProps {
   onReasoningChange?: (effort: ReasoningEffort) => void;
   /** Switch Codex speed mode callback */
   onCodexFastModeChange?: (mode: CodexFastMode) => void;
-  /** Switch Codex context-window preset */
-  onCodexContextWindowChange?: (preset: CodexContextWindowPreset) => void;
-  /** Refresh Codex context-window config from disk */
-  onCodexContextWindowRefresh?: () => void;
   /** Switch DSH agent preset callback */
   onDshPresetChange?: (preset: string) => void;
   /** Enhance prompt callback */

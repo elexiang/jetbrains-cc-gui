@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getSubmenuLayout, isSubmenuHeightClipped } from './dropdownPosition';
+import { getMainDropdownLayout, getSubmenuLayout, isSubmenuHeightClipped } from './dropdownPosition';
 
 const viewport = { width: 420, height: 700, left: 0, top: 0 };
 
@@ -83,6 +83,36 @@ describe('getSubmenuLayout', () => {
 
     expect(layout.maxHeight).toBeLessThan(260);
     expect(isSubmenuHeightClipped(layout.maxHeight, 260)).toBe(true);
+  });
+});
+
+describe('getMainDropdownLayout', () => {
+  it('prefers below placement when the lower viewport has enough room', () => {
+    const layout = getMainDropdownLayout({
+      trigger: { left: 20, right: 100, top: 120, bottom: 148, width: 80, height: 28 },
+      viewport,
+      measuredWidth: 300,
+      measuredHeight: 180,
+      preferredPlacement: 'below',
+    });
+
+    expect(layout.placement).toBe('below');
+    expect(layout.top).toBe(152);
+    expect(layout.maxHeight).toBe(180);
+  });
+
+  it('flips a below-first menu above when the lower viewport is too short', () => {
+    const layout = getMainDropdownLayout({
+      trigger: { left: 20, right: 100, top: 620, bottom: 648, width: 80, height: 28 },
+      viewport,
+      measuredWidth: 300,
+      measuredHeight: 180,
+      preferredPlacement: 'below',
+    });
+
+    expect(layout.placement).toBe('above');
+    expect(layout.bottom).toBe(84);
+    expect(layout.maxHeight).toBe(180);
   });
 });
 

@@ -1,4 +1,18 @@
 {
+  "codexContextManagement": {
+    "title": "新上下文管理",
+    "experimental": "实验性",
+    "description": "为新启动的 Codex 会话全局启用实验性上下文管理机制。当前运行中的会话可能不会应用此变更。",
+    "selectorTitle": "上下文管理",
+    "newShort": "新",
+    "oldShort": "旧",
+    "newLabel": "新上下文管理 · 实验性",
+    "newDescription": "在上下文接近上限时，使用实验性的压缩式管理，尽量保留当前任务相关的信息并降低上下文占用，以支持更长的连续会话。仅对新启动的 Codex 会话生效。",
+    "oldLabel": "旧上下文管理",
+    "oldDescription": "不启用实验性的新机制，继续使用 Codex 原有的上下文处理策略；上下文接近上限时按旧策略处理较早的会话内容。仅对新启动的 Codex 会话生效。",
+    "saved": "上下文管理设置已更新，将用于新启动的 Codex 会话。",
+    "saveFailed": "无法更新 Codex 全局配置。"
+  },
   "codexPet": {
     "title": "Codex 宠物",
     "close": "隐藏宠物",
@@ -2403,6 +2417,8 @@
   },
   "codexContextWindow": {
     "title": "选择 Codex 上下文窗口",
+    "oneMillionLabel": "1M",
+    "oneMillionDescription": "启用 1M Codex 上下文窗口；取消勾选后恢复默认 272K。",
     "loading": "上下文…",
     "customLabel": "自定义 {{value}}",
     "saved": "Codex 上下文已更新，下一条消息生效",
@@ -2413,10 +2429,6 @@
     "default": {
       "label": "默认 272K",
       "description": "移除覆盖项，使用 Codex 官方默认上下文窗口"
-    },
-    "500k": {
-      "label": "500K",
-      "description": "请求 500K 上下文，约在 450K 时自动压缩"
     },
     "1m": {
       "label": "1M",

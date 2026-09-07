@@ -52,11 +52,23 @@ public final class CodexContextWindowConfigService {
      * @return 成功时包含权威快照；失败时包含错误信息
      */
     public OperationResult readCurrent() {
-        try {
-            return OperationResult.success(settingsManager.readContextWindowConfig());
-        } catch (Exception e) {
-            LOG.warn("[CodexContextWindow] Failed to read config: " + e.getMessage(), e);
-            return OperationResult.failure(null, e.getMessage());
+        synchronized (writeLock) {
+            CodexSettingsManager.CodexContextWindowConfig config = null;
+            try {
+                config = readSnapshot();
+                if ("500k".equals(config.getPreset())) {
+                    // 500K is no longer exposed by the UI. Migrate it through
+                    // the existing atomic writer so comments, sections, and
+                    // unrelated settings retain the same safety guarantees.
+                    settingsManager.updateContextWindowPreset("default");
+                    config = readSnapshot();
+                    notifyCallbacks(config);
+                }
+                return OperationResult.success(config);
+            } catch (Exception e) {
+                LOG.warn("[CodexContextWindow] Failed to read or migrate config: " + e.getMessage(), e);
+                return OperationResult.failure(config, e.getMessage());
+            }
         }
     }
 
@@ -73,14 +85,44 @@ public final class CodexContextWindowConfigService {
                 return OperationResult.failure(current.getConfig(), "Missing Codex context window preset");
             }
             try {
-                CodexSettingsManager.CodexContextWindowConfig config =
-                        settingsManager.updateContextWindowPreset(preset);
+                settingsManager.updateContextWindowPreset(preset);
+                CodexSettingsManager.CodexContextWindowConfig config = readSnapshot();
                 notifyCallbacks(config);
                 return OperationResult.success(config);
             } catch (Exception e) {
                 LOG.warn("[CodexContextWindow] Failed to update preset: " + preset, e);
                 OperationResult current = readCurrent();
                 return OperationResult.failure(current.getConfig(), e.getMessage());
+            }
+        }
+    }
+
+    /** 在同一配置锁内读取两个独立设置的权威快照。 */
+    private CodexSettingsManager.CodexContextWindowConfig readSnapshot() throws java.io.IOException {
+        final CodexSettingsManager.CodexContextWindowConfig[] snapshot = new CodexSettingsManager.CodexContextWindowConfig[1];
+        settingsManager.runWithConfigAccess(() -> true, () -> {
+            snapshot[0] = settingsManager.readContextWindowConfig();
+            try {
+                snapshot[0].setContextManagement(settingsManager.readContextManagement());
+            } catch (java.io.IOException e) {
+                // 实验字段读取失败不能改变原有 Context Window 的读写行为。
+                snapshot[0].setContextManagementError(e.getMessage());
+            }
+        });
+        return snapshot[0];
+    }
+
+    /** 仅更新实验开关，成功后沿用现有跨窗口广播。 */
+    public OperationResult updateContextManagement(boolean enabled) {
+        synchronized (writeLock) {
+            try {
+                settingsManager.updateContextManagement(enabled);
+                var config = readSnapshot();
+                notifyCallbacks(config);
+                return OperationResult.success(config);
+            } catch (Exception e) {
+                LOG.warn("[CodexContextWindow] Failed to update context management", e);
+                return OperationResult.failure(readCurrent().getConfig(), e.getMessage());
             }
         }
     }

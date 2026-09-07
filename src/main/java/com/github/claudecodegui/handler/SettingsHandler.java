@@ -46,6 +46,7 @@ public class SettingsHandler extends BaseMessageHandler {
         "set_codex_fast_mode",
         "get_codex_context_window",
         "set_codex_context_window",
+        "set_codex_context_management",
         "set_dsh_preset",
         "get_node_path",
         "set_node_path",
@@ -187,6 +188,9 @@ public class SettingsHandler extends BaseMessageHandler {
                 return true;
             case "set_codex_fast_mode":
                 modelProviderHandler.handleSetCodexFastMode(content);
+                return true;
+            case "set_codex_context_management":
+                codexContextWindowHandler.handleSetContextManagement(content);
                 return true;
             case "get_codex_context_window":
                 codexContextWindowHandler.handleGet();

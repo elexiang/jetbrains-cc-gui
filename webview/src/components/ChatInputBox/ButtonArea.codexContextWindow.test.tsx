@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ButtonArea } from './ButtonArea';
 
@@ -13,14 +13,12 @@ vi.mock('react-i18next', async (importOriginal) => {
 });
 
 describe('ButtonArea Codex selector placement', () => {
-  it('shows model, reasoning, speed, and context as separate Codex selectors', () => {
+  it('keeps the context controls out of the bottom toolbar', () => {
     const props = {
       selectedModel: 'gpt-5.6-sol',
       currentProvider: 'codex',
       onModelSelect: vi.fn(),
       onProviderSelect: vi.fn(),
-      onCodexContextWindowChange: vi.fn(),
-      onCodexContextWindowRefresh: vi.fn(),
     } as const;
     const { rerender } = render(<ButtonArea {...props} />);
 
@@ -28,14 +26,12 @@ describe('ButtonArea Codex selector placement', () => {
     expect(screen.getByTestId('model-select-trigger')).toBeTruthy();
     expect(screen.getByTestId('reasoning-select-trigger')).toBeTruthy();
     expect(screen.getByTestId('codex-fast-mode-trigger')).toBeTruthy();
-    expect(screen.getByTestId('codex-context-window-trigger')).toBeTruthy();
+    expect(screen.queryByTestId('codex-context-window-toggle')).toBeNull();
+    expect(screen.queryByTestId('codex-context-management-trigger')).toBeNull();
 
-    fireEvent.click(screen.getByTestId('codex-context-window-trigger'));
-    expect(screen.getAllByRole('option')).toHaveLength(3);
-
-    fireEvent.click(screen.getByTestId('codex-context-window-trigger'));
     rerender(<ButtonArea {...props} currentProvider="claude" selectedModel="claude-sonnet-5" />);
-    expect(screen.queryByTestId('codex-context-window-trigger')).toBeNull();
+    expect(screen.queryByTestId('codex-context-window-toggle')).toBeNull();
+    expect(screen.queryByTestId('codex-context-management-trigger')).toBeNull();
     expect(screen.getByTestId('model-select-trigger')).toBeTruthy();
     expect(screen.getByTestId('reasoning-select-trigger')).toBeTruthy();
   });

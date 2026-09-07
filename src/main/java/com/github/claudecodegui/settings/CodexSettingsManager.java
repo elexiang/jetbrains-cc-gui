@@ -315,6 +315,118 @@ public class CodexSettingsManager {
         return readContextWindowConfigUnlocked();
     }
 
+    private static final String CONTEXT_MANAGEMENT_KEY = "features.context_management.experimental_mode";
+
+    /** 读取用户级实验开关；缺失字段按关闭处理，非法配置不静默忽略。 */
+    public boolean readContextManagement() throws IOException {
+        synchronized (CONFIG_FILE_LOCK) {
+            Path path = getConfigTomlPath();
+            return Files.exists(path) && readContextManagementValue(
+                    parseContextManagementToml(Files.readString(path, StandardCharsets.UTF_8)));
+        }
+    }
+
+    private TomlParseResult parseContextManagementToml(String content) throws IOException {
+        TomlParseResult parsed = Toml.parse(stripBom(content));
+        if (parsed.hasErrors()) {
+            throw new IOException("Codex config.toml could not be safely parsed. No changes were made.");
+        }
+        return parsed;
+    }
+
+    private boolean readContextManagementValue(TomlParseResult parsed) throws IOException {
+        Object value;
+        try {
+            value = parsed.get(CONTEXT_MANAGEMENT_KEY);
+        } catch (IllegalArgumentException e) {
+            throw new IOException("Invalid Codex context management configuration", e);
+        }
+        if (value != null && !(value instanceof Boolean)) {
+            throw new IOException("Codex experimental_mode must be a Boolean. No changes were made.");
+        }
+        return Boolean.TRUE.equals(value);
+    }
+
+    /**
+     * 仅修改实验开关，复用全局锁和原子写入；关闭时移除默认字段。
+     * 解析器定位实际字段，避免误修改多行字符串中的同名文本。
+     */
+    public void updateContextManagement(boolean enabled) throws IOException {
+        synchronized (CONFIG_FILE_LOCK) {
+            Path path = getConfigTomlPath();
+            String original = Files.exists(path) ? Files.readString(path, StandardCharsets.UTF_8) : "";
+            TomlParseResult parsed = parseContextManagementToml(original);
+            boolean current = readContextManagementValue(parsed);
+            Object existing = parsed.get(CONTEXT_MANAGEMENT_KEY);
+            if ((enabled && current) || (!enabled && existing == null)) {
+                return;
+            }
+            String body = stripBom(original);
+            String newline = body.contains("\r\n") ? "\r\n" : "\n";
+            String patched;
+            if (existing != null) {
+                var position = parsed.inputPositionOf(CONTEXT_MANAGEMENT_KEY);
+                String[] lines = body.split("(?<=\n)", -1);
+                int index = position.line() - 1;
+                String line = lines[index];
+                // 只接受独立赋值行；内联表等无法可靠移除的写法安全拒绝。
+                var match = Pattern.compile("^(\\s*[^\\r\\n]+?=\\s*)(true|false)([ \\t]*)(#[^\\r\\n]*)?(\\r?\\n)?$")
+                        .matcher(line);
+                if (!line.substring(0, position.column() - 1).isBlank() || !match.matches()) {
+                    throw new IOException("Codex context management cannot be safely edited in this TOML layout. No changes were made.");
+                }
+                lines[index] = enabled
+                        ? match.group(1) + "true" + match.group(3)
+                            + (match.group(4) == null ? "" : match.group(4))
+                            + (match.group(5) == null ? "" : match.group(5))
+                        : (match.group(4) == null ? "" : match.group(4)
+                            + (match.group(5) == null ? "" : match.group(5)));
+                patched = String.join("", lines);
+            } else {
+                var section = parsed.inputPositionOf("features.context_management");
+                if (section != null) {
+                    String[] lines = body.split("(?<=\n)", -1);
+                    int index = section.line() - 1;
+                    lines[index] = lines[index] + (lines[index].endsWith("\n") ? "" : newline)
+                            + "experimental_mode = true" + newline;
+                    patched = String.join("", lines);
+                } else {
+                    patched = body + (body.isEmpty() || body.endsWith("\n") ? "" : newline)
+                            + "[features.context_management]" + newline + "experimental_mode = true" + newline;
+                }
+            }
+            TomlParseResult after = parseContextManagementToml(patched);
+            if (readContextManagementValue(after) != enabled
+                    || !contextManagementUnrelatedConfig(parsed).equals(contextManagementUnrelatedConfig(after))) {
+                throw new IOException("Codex context management could not be safely updated. No changes were made.");
+            }
+            if (Files.exists(path) && !Files.isWritable(path)) {
+                throw new IOException("Unable to update Codex global configuration: config.toml is not writable.");
+            }
+            writeStringAtomically(path, (original.startsWith("\uFEFF") ? "\uFEFF" : "") + patched);
+        }
+    }
+
+    /** 比较除目标字段和其空父表之外的完整配置，保留未知配置语义。 */
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> contextManagementUnrelatedConfig(TomlParseResult parsed) {
+        Map<String, Object> config = convertTomlTable(parsed);
+        if (config.get("features") instanceof Map) {
+            Map<String, Object> features = (Map<String, Object>) config.get("features");
+            if (features.get("context_management") instanceof Map) {
+                Map<String, Object> management = (Map<String, Object>) features.get("context_management");
+                management.remove("experimental_mode");
+                if (management.isEmpty()) {
+                    features.remove("context_management");
+                }
+            }
+            if (features.isEmpty()) {
+                config.remove("features");
+            }
+        }
+        return config;
+    }
+
     private Integer readTopLevelInteger(String content, String key) {
         String normalized = stripBom(content);
         String[] lines = normalized.split("\\r?\\n", -1);
@@ -484,6 +596,17 @@ public class CodexSettingsManager {
         public static final String PRESET_CUSTOM = "custom";
 
         private final String preset;
+        private Boolean contextManagement;
+        private String contextManagementError;
+
+        public Boolean isContextManagement() { return contextManagement; }
+
+        void setContextManagement(boolean enabled) { contextManagement = enabled; }
+
+        public String getContextManagementError() { return contextManagementError; }
+
+        void setContextManagementError(String error) { contextManagementError = error; }
+
         private final Integer contextWindow;
         private final Integer autoCompactTokenLimit;
         private final boolean custom;
