@@ -158,6 +158,7 @@ export const ReasoningSelect = ({
           {availableLevels.map((level) => (
             <div
               key={level.id}
+              data-testid={`reasoning-option-${level.id}`}
               className={`selector-option ${level.id === value ? 'selected' : ''}`}
               onClick={() => handleSelect(level.id)}
               title={getReasoningText(level.id, 'description')}
@@ -186,6 +187,7 @@ export const ReasoningSelect = ({
         className="selector-button"
         onClick={handleToggle}
         disabled={disabled}
+        data-testid="reasoning-select-trigger"
         title={t('reasoning.title', { defaultValue: 'Select reasoning depth' })}
       >
         <span className="codicon codicon-lightbulb" />

@@ -419,6 +419,7 @@ export const ModelSelect = ({
         ref={buttonRef}
         className="selector-button"
         onClick={handleToggle}
+        data-testid="model-select-trigger"
         title={t('chat.currentModel', { model: getModelLabel(currentModel, true) })}
       >
         <ProviderModelIcon

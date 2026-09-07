@@ -157,6 +157,7 @@ export const DshPresetSelect = ({
         ref={buttonRef}
         className="selector-button"
         onClick={handleToggle}
+        data-testid="dsh-preset-trigger"
         title={t('dshPresets.title', { defaultValue: getPresetText(currentPreset.id, 'description') })}
       >
         <span className="codicon codicon-robot" />

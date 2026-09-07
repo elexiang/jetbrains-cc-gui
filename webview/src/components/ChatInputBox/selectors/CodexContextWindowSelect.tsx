@@ -13,7 +13,12 @@ const DROPDOWN_STYLE: React.CSSProperties = {
   zIndex: 10000,
   minWidth: '230px',
 };
-const OPTION_INFO_STYLE: React.CSSProperties = { display: 'flex', flexDirection: 'column', flex: 1 };
+const OPTION_INFO_STYLE: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  flex: 1,
+  minWidth: 0,
+};
 
 interface CodexContextWindowSelectProps {
   value: CodexContextWindowValue;
@@ -161,12 +166,23 @@ export const CodexContextWindowSelect = ({
           : { overflowY: 'visible' as const }),
         ...positionedStyle,
       }
-    : { ...DROPDOWN_STYLE, ...positionedStyle };
+    : {
+        ...DROPDOWN_STYLE,
+        ...positionedStyle,
+        // Keep the standalone context menu inside narrow/mobile viewports.
+        // Long option descriptions must wrap within a bounded menu instead
+        // of expanding the fixed-position element past the viewport edge.
+        width: 'min(340px, calc(100vw - 16px))',
+        maxWidth: 'calc(100vw - 16px)',
+        boxSizing: 'border-box',
+        whiteSpace: 'normal',
+        overflowX: 'hidden',
+      };
 
   const renderDropdown = () => (
     <div
       ref={dropdownRef}
-      className="selector-dropdown"
+      className="selector-dropdown codex-context-window-dropdown"
       style={dropdownStyle}
       role="listbox"
       onMouseEnter={(event) => event.stopPropagation()}
@@ -201,6 +217,7 @@ export const CodexContextWindowSelect = ({
         className="selector-button"
         onClick={handleToggle}
         disabled={disabled}
+        data-testid="codex-context-window-trigger"
         title={t('codexContextWindow.title', { defaultValue: 'Select Codex context window' })}
       >
         <span className={`codicon ${saving || loading ? 'codicon-loading codicon-modifier-spin' : 'codicon-symbol-number'}`} />

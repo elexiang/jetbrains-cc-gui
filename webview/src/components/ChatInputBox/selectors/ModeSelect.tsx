@@ -193,6 +193,7 @@ export const ModeSelect = ({
         ref={buttonRef}
         className={`selector-button${value === 'bypassPermissions' ? ' mode-full-auto-active' : ''}`}
         onClick={handleToggle}
+        data-testid="mode-select-trigger"
         title={getModeText(currentMode.id, 'tooltip') || `${t('chat.currentMode', { mode: getModeText(currentMode.id, 'label') })}`}
       >
         <span className={`codicon ${currentMode.icon}`} />

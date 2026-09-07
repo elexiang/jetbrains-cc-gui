@@ -13,7 +13,7 @@ vi.mock('react-i18next', async (importOriginal) => {
 });
 
 describe('ButtonArea Codex selector placement', () => {
-  it('shows the unified model config selector for Codex', () => {
+  it('shows model, reasoning, speed, and context as separate Codex selectors', () => {
     const props = {
       selectedModel: 'gpt-5.6-sol',
       currentProvider: 'codex',
@@ -24,20 +24,19 @@ describe('ButtonArea Codex selector placement', () => {
     } as const;
     const { rerender } = render(<ButtonArea {...props} />);
 
-    const modelConfigTrigger = screen.getByTestId('model-config-trigger');
-    expect(modelConfigTrigger).toBeTruthy();
-    expect(screen.queryByTitle('chat.currentModel')).toBeNull();
-    expect(screen.queryByTitle('Select reasoning depth')).toBeNull();
-    expect(screen.queryByTitle('Select Codex speed mode')).toBeNull();
+    expect(screen.queryByTestId('model-config-trigger')).toBeNull();
+    expect(screen.getByTestId('model-select-trigger')).toBeTruthy();
+    expect(screen.getByTestId('reasoning-select-trigger')).toBeTruthy();
+    expect(screen.getByTestId('codex-fast-mode-trigger')).toBeTruthy();
+    expect(screen.getByTestId('codex-context-window-trigger')).toBeTruthy();
 
-    fireEvent.click(modelConfigTrigger);
-    expect(screen.getByTestId('model-selector-dropdown')).toBeTruthy();
-    expect(screen.getByTestId('model-config-option-codex-context')).toBeTruthy();
-    fireEvent.click(screen.getByTestId('model-config-option-codex-context'));
+    fireEvent.click(screen.getByTestId('codex-context-window-trigger'));
     expect(screen.getAllByRole('option')).toHaveLength(3);
 
-    fireEvent.click(modelConfigTrigger);
-    rerender(<ButtonArea {...props} currentProvider="claude" />);
-    expect(screen.queryByTestId('model-config-option-codex-context')).toBeNull();
+    fireEvent.click(screen.getByTestId('codex-context-window-trigger'));
+    rerender(<ButtonArea {...props} currentProvider="claude" selectedModel="claude-sonnet-5" />);
+    expect(screen.queryByTestId('codex-context-window-trigger')).toBeNull();
+    expect(screen.getByTestId('model-select-trigger')).toBeTruthy();
+    expect(screen.getByTestId('reasoning-select-trigger')).toBeTruthy();
   });
 });

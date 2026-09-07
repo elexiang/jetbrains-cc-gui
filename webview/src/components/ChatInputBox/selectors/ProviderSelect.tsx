@@ -313,6 +313,7 @@ export const ProviderSelect = ({ value, onChange, compact = false, onOpenCliSett
           ref={buttonRef}
           className={`selector-button${compact ? ' provider-compact' : ''}`}
           onClick={handleToggle}
+          data-testid="provider-select-trigger"
           title={`${t('config.switchProvider')}: ${getProviderLabel(currentProvider.id)}`}
         >
           <ProviderModelIcon providerId={currentProvider.id} size={compact ? 16 : 12} colored={compact} />

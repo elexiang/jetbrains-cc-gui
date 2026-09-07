@@ -3,6 +3,7 @@ import { APP_VERSION } from '../src/version/version';
 
 type BridgeWindow = Window & typeof globalThis & {
   sendToJava?: (message: string) => void;
+  sentMessages?: string[];
 };
 
 const NODE_PROCESS_SNAPSHOT = {
@@ -83,10 +84,10 @@ const LARGE_MODEL_LIST = Array.from({ length: 240 }, (_, index) => {
   };
 });
 
-async function installBridgeMocks(page: Page, customModels = [LONG_MODEL]) {
-  await page.addInitScript(({ processSnapshot, claudeProviders, codexProviders, models, appVersion }) => {
+async function installBridgeMocks(page: Page, customModels = [LONG_MODEL], provider: 'claude' | 'codex' = 'claude') {
+  await page.addInitScript(({ processSnapshot, claudeProviders, codexProviders, models, appVersion, providerId }) => {
     localStorage.setItem('model-selection-state', JSON.stringify({
-      provider: 'claude',
+      provider: providerId,
       claudeModel: 'claude-sonnet-4-6',
       codexModel: 'gpt-5.5',
       claudePermissionMode: 'bypassPermissions',
@@ -117,10 +118,40 @@ async function installBridgeMocks(page: Page, customModels = [LONG_MODEL]) {
       }, 0);
     };
 
+    const sentMessages: string[] = [];
+    (window as BridgeWindow).sentMessages = sentMessages;
     (window as BridgeWindow).sendToJava = (message: string) => {
+      sentMessages.push(message);
       if (message.startsWith('get_node_processes:')) respond('updateNodeProcesses', processSnapshot);
       if (message.startsWith('get_providers:')) respond('updateProviders', claudeProviders);
       if (message.startsWith('get_codex_providers:')) respond('updateCodexProviders', codexProviders);
+      if (message.startsWith('get_codex_context_window:')) {
+        respond('updateCodexContextWindowConfig', {
+          success: true,
+          preset: 'default',
+          contextWindow: 272_000,
+          autoCompactTokenLimit: 244_800,
+          custom: false,
+        });
+      }
+      if (message.startsWith('set_codex_context_window:')) {
+        const content = message.slice('set_codex_context_window:'.length);
+        let preset = 'default';
+        try {
+          const parsed = JSON.parse(content) as { preset?: string };
+          if (typeof parsed.preset === 'string') preset = parsed.preset;
+        } catch {
+          // Keep the default fixture response for malformed test payloads.
+        }
+        const contextWindow = preset === '1m' ? 1_000_000 : preset === '500k' ? 500_000 : 272_000;
+        respond('updateCodexContextWindowConfig', {
+          success: true,
+          preset,
+          contextWindow,
+          autoCompactTokenLimit: preset === '1m' ? 900_000 : preset === '500k' ? 450_000 : 244_800,
+          custom: false,
+        });
+      }
     };
   }, {
     processSnapshot: NODE_PROCESS_SNAPSHOT,
@@ -128,6 +159,7 @@ async function installBridgeMocks(page: Page, customModels = [LONG_MODEL]) {
     codexProviders: CODEX_PROVIDERS_PAYLOAD,
     models: customModels,
     appVersion: APP_VERSION,
+    providerId: provider,
   });
 }
 
@@ -135,9 +167,44 @@ function collectPageErrors(page: Page) {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   page.on('console', (message) => {
-    if (message.type() === 'error') errors.push(message.text());
+    // Chromium probes /favicon.ico on the Vite fixture even though the app
+    // does not declare one; keep real page errors visible without failing on
+    // that expected dev-server 404.
+    if (
+      message.type() === 'error'
+      && message.text() !== 'Failed to load resource: the server responded with a status of 404 (Not Found)'
+    ) {
+      errors.push(message.text());
+    }
   });
   return errors;
+}
+
+async function expectNoFooterOverlap(page: Page, triggers: Locator[], label: string) {
+  const boxes = await Promise.all(triggers.map(async (trigger) => {
+    await expect(trigger, `${label} trigger`).toBeVisible();
+    await expectInsideViewport(page, trigger, `${label} trigger`);
+    return trigger.boundingBox();
+  }));
+  const sendBox = await page.locator('.button-area-right').boundingBox();
+  expect(sendBox, `${label} send area should have a visible bounding box`).not.toBeNull();
+  if (!sendBox) return;
+
+  for (let i = 0; i < boxes.length; i += 1) {
+    const box = boxes[i];
+    expect(box, `${label} trigger ${i} should have a visible bounding box`).not.toBeNull();
+    if (!box) continue;
+    const sendOverlapX = Math.max(0, Math.min(box.x + box.width, sendBox.x + sendBox.width) - Math.max(box.x, sendBox.x));
+    const sendOverlapY = Math.max(0, Math.min(box.y + box.height, sendBox.y + sendBox.height) - Math.max(box.y, sendBox.y));
+    expect(sendOverlapX * sendOverlapY, `${label} trigger ${i} overlaps send area`).toBeLessThanOrEqual(1);
+    for (let j = i + 1; j < boxes.length; j += 1) {
+      const other = boxes[j];
+      if (!other) continue;
+      const overlapX = Math.max(0, Math.min(box.x + box.width, other.x + other.width) - Math.max(box.x, other.x));
+      const overlapY = Math.max(0, Math.min(box.y + box.height, other.y + other.height) - Math.max(box.y, other.y));
+      expect(overlapX * overlapY, `${label} triggers ${i} and ${j} overlap`).toBeLessThanOrEqual(1);
+    }
+  }
 }
 
 function significantErrors(errors: string[]) {
@@ -212,11 +279,19 @@ async function openSelectorMenu(page: Page, button: Locator, label: string) {
   await closeOpenMenus(page);
 }
 
+async function openDirectSelector(page: Page, trigger: Locator, dropdown: Locator, label: string) {
+  await trigger.click();
+  await expect(dropdown, `${label} dropdown`).toBeVisible();
+  await expectInsideViewport(page, dropdown, `${label} dropdown`);
+  await closeOpenMenus(page);
+}
+
 test.beforeEach(async ({ page }, testInfo) => {
   const customModels = testInfo.title.includes('large model selector')
     ? LARGE_MODEL_LIST
     : [LONG_MODEL];
-  await installBridgeMocks(page, customModels);
+  const provider = testInfo.title.includes('Codex') ? 'codex' : 'claude';
+  await installBridgeMocks(page, customModels, provider);
 });
 
 test('footer selector menus render inside the viewport', async ({ page }) => {
@@ -227,12 +302,79 @@ test('footer selector menus render inside the viewport', async ({ page }) => {
 
   const buttons = page.locator('.button-area-left .selector-button');
   await expect(buttons).toHaveCount(5);
+  await expectNoFooterOverlap(page, [
+    page.getByTestId('config-select-trigger'),
+    page.getByTestId('provider-select-trigger'),
+    page.getByTestId('mode-select-trigger'),
+    page.getByTestId('model-select-trigger'),
+    page.getByTestId('reasoning-select-trigger'),
+  ], 'Claude footer');
 
-  await openSelectorMenu(page, buttons.nth(0), 'config');
-  await openSelectorMenu(page, buttons.nth(1), 'provider');
-  await openSelectorMenu(page, buttons.nth(2), 'mode');
-  await openSelectorMenu(page, buttons.nth(3), 'model');
-  await openSelectorMenu(page, buttons.nth(4), 'reasoning');
+  await openSelectorMenu(page, page.getByTestId('config-select-trigger'), 'config');
+  await openSelectorMenu(page, page.getByTestId('provider-select-trigger'), 'provider');
+  await openSelectorMenu(page, page.getByTestId('mode-select-trigger'), 'mode');
+  await openDirectSelector(page, page.getByTestId('model-select-trigger'), page.getByTestId('model-selector-dropdown'), 'model');
+  await openDirectSelector(page, page.getByTestId('reasoning-select-trigger'), page.getByTestId('reasoning-selector-dropdown'), 'reasoning');
+
+  expect(significantErrors(errors)).toEqual([]);
+});
+
+test('Codex keeps model, reasoning, speed, and context as direct footer entries', async ({ page }) => {
+  const errors = collectPageErrors(page);
+  await page.goto('/');
+  await expect(page.locator('.button-area').first()).toHaveAttribute('data-provider', 'codex');
+  await expect.poll(() => page.evaluate(() => typeof window.updateCodexContextWindowConfig)).toBe('function');
+  await page.evaluate(() => window.updateCodexContextWindowConfig?.(JSON.stringify({
+    success: true,
+    preset: 'default',
+    contextWindow: 272_000,
+    autoCompactTokenLimit: 244_800,
+    custom: false,
+  })));
+
+  const left = page.locator('.button-area-left');
+  const modelTrigger = left.getByTestId('model-select-trigger');
+  const reasoningTrigger = left.getByTestId('reasoning-select-trigger');
+  const speedTrigger = left.getByTestId('codex-fast-mode-trigger');
+  const contextTrigger = left.getByTestId('codex-context-window-trigger');
+  await expect(modelTrigger).toBeVisible();
+  await expect(reasoningTrigger).toBeVisible();
+  await expect(speedTrigger).toBeVisible();
+  await expect(contextTrigger).toBeVisible();
+
+  await openDirectSelector(page, modelTrigger, page.getByTestId('model-selector-dropdown'), 'Codex model');
+  await openDirectSelector(page, reasoningTrigger, page.getByTestId('reasoning-selector-dropdown'), 'Codex reasoning');
+  await openDirectSelector(page, speedTrigger, page.getByTestId('codex-fast-mode-dropdown'), 'Codex speed');
+
+  const reasoningDropdown = page.getByTestId('reasoning-selector-dropdown');
+  await reasoningTrigger.click();
+  await expect(reasoningDropdown).toBeVisible();
+  await reasoningDropdown.getByTestId('reasoning-option-low').click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { sentMessages?: string[] }).sentMessages?.includes('set_reasoning_effort:low'))).toBe(true);
+
+  await speedTrigger.click();
+  const speedDropdown = page.getByTestId('codex-fast-mode-dropdown');
+  await expect(speedDropdown).toBeVisible();
+  await speedDropdown.getByTestId('codex-fast-mode-option-fast').click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { sentMessages?: string[] }).sentMessages?.includes('set_codex_fast_mode:fast'))).toBe(true);
+
+  await contextTrigger.click();
+  const contextDropdown = page.locator('.selector-dropdown[role="listbox"]');
+  await expect(contextDropdown).toBeVisible();
+  await expectInsideViewport(page, contextDropdown, 'Codex context');
+  await contextDropdown.getByTestId('codex-context-option-1m').click();
+  await expect(contextDropdown).toBeHidden();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { sentMessages?: string[] }).sentMessages?.includes('set_codex_context_window:{"preset":"1m"}'))).toBe(true);
+
+  await expectNoFooterOverlap(page, [
+    left.getByTestId('config-select-trigger'),
+    left.getByTestId('provider-select-trigger'),
+    left.getByTestId('mode-select-trigger'),
+    modelTrigger,
+    reasoningTrigger,
+    speedTrigger,
+    contextTrigger,
+  ], 'Codex footer');
 
   expect(significantErrors(errors)).toEqual([]);
 });
@@ -246,7 +388,7 @@ test('Codex auto review appears only after the SDK confirms support', async ({ p
   });
   await page.goto('/');
   await expect(page.locator('.button-area').first()).toHaveAttribute('data-provider', 'codex');
-  await page.locator('.button-area-left .selector-button').nth(2).click();
+  await page.getByTestId('mode-select-trigger').click();
   await expect(page.getByTestId('mode-option-default')).toBeVisible();
   await expect(page.getByTestId('mode-option-auto')).toHaveCount(0);
 
@@ -265,7 +407,7 @@ test('Codex auto review appears only after the SDK confirms support', async ({ p
   await expect.poll(() => page.evaluate(() => JSON.parse(
     localStorage.getItem('model-selection-state') || '{}',
   ).codexPermissionMode)).toBe('default');
-  await page.locator('.button-area-left .selector-button').nth(2).click();
+  await page.getByTestId('mode-select-trigger').click();
   await expect(page.getByTestId('mode-option-default')).toBeVisible();
   await expect(page.getByTestId('mode-option-auto')).toHaveCount(0);
 });
@@ -314,7 +456,7 @@ test('long model and mode text stays contained in selector menus', async ({ page
   const buttons = page.locator('.button-area-left .selector-button');
   await expect(buttons).toHaveCount(5);
 
-  await buttons.nth(2).click();
+  await page.getByTestId('mode-select-trigger').click();
   const modeDropdown = page.locator('.selector-dropdown').first();
   await expect(modeDropdown).toBeVisible();
   await expectInsideViewport(page, modeDropdown, 'mode dropdown with long descriptions');
@@ -324,11 +466,8 @@ test('long model and mode text stays contained in selector menus', async ({ page
   await expectContainedWithin(longModeOption, longModeDescription, 'long mode description');
   await closeOpenMenus(page);
 
-  await buttons.nth(3).click();
-  const modelConfigDropdown = page.locator('.model-config-dropdown');
-  await expect(modelConfigDropdown).toBeVisible();
-  await expectInsideViewport(page, modelConfigDropdown, 'model config dropdown');
-  const modelDropdown = modelConfigDropdown.getByTestId('model-selector-dropdown');
+  await page.getByTestId('model-select-trigger').click();
+  const modelDropdown = page.getByTestId('model-selector-dropdown');
   await expect(modelDropdown).toBeVisible();
   await expectInsideViewport(page, modelDropdown, 'model dropdown with long custom model');
   const longModelOption = modelDropdown.locator('.selector-option').filter({ hasText: LONG_MODEL.label }).first();
@@ -347,13 +486,11 @@ test('large model selector remains searchable and capped', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.button-area-left')).toBeVisible();
 
-  const modelButton = page.locator('.button-area-left .selector-button').nth(3);
+  const modelButton = page.getByTestId('model-select-trigger');
   await modelButton.click();
-  const modelConfigDropdown = page.locator('.model-config-dropdown');
-  await expect(modelConfigDropdown).toBeVisible();
-  const modelDropdown = modelConfigDropdown.getByTestId('model-selector-dropdown');
+  const modelDropdown = page.getByTestId('model-selector-dropdown');
   await expect(modelDropdown).toBeVisible();
-  await expectInsideViewport(page, modelConfigDropdown, 'large model dropdown');
+  await expectInsideViewport(page, modelDropdown, 'large model dropdown');
 
   const renderedLargeModels = modelDropdown.getByText(/^Large Model \d{3}$/);
   await expect(renderedLargeModels).toHaveCount(100);
@@ -367,7 +504,7 @@ test('large model selector remains searchable and capped', async ({ page }) => {
   const targetOption = modelDropdown.locator('.selector-option').filter({ hasText: SEARCH_TARGET_MODEL.label }).first();
   await expect(targetOption).toBeVisible();
   await targetOption.click();
-  await expect(targetOption).toHaveClass(/selected/);
+  await expect(modelButton).toHaveAttribute('title', new RegExp(SEARCH_TARGET_MODEL.label));
 
   expect(significantErrors(errors)).toEqual([]);
 });

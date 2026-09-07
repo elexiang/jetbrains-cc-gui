@@ -135,6 +135,7 @@ export const CodexFastModeSelect = ({
           {CODEX_FAST_MODE_OPTIONS.map((mode) => (
             <div
               key={mode.id}
+              data-testid={`codex-fast-mode-option-${mode.id}`}
               className={`selector-option ${mode.id === value ? 'selected' : ''}`}
               onClick={() => handleSelect(mode.id)}
               title={getModeText(mode, 'description')}
@@ -162,6 +163,7 @@ export const CodexFastModeSelect = ({
         ref={buttonRef}
         className={`selector-button${value === 'fast' ? ' codex-fast-active' : ''}`}
         onClick={handleToggle}
+        data-testid="codex-fast-mode-trigger"
         title={t('codexFastMode.title', { defaultValue: 'Select Codex speed mode' })}
       >
         <span className={`codicon ${currentMode.icon}`} />

@@ -406,6 +406,7 @@ export const ConfigSelect = ({
         className="selector-button"
         onClick={handleToggle}
         style={TOGGLE_BUTTON_STYLE}
+        data-testid="config-select-trigger"
         title={t('settings.configure', 'Configure')}
       >
         <span className="codicon codicon-settings" />
