@@ -13,7 +13,7 @@ vi.mock('react-i18next', async (importOriginal) => {
 });
 
 describe('ButtonArea Codex selector placement', () => {
-  it('shows model settings as separate toolbar selectors for Codex', () => {
+  it('shows the unified model config selector for Codex', () => {
     const props = {
       selectedModel: 'gpt-5.6-sol',
       currentProvider: 'codex',
@@ -24,16 +24,20 @@ describe('ButtonArea Codex selector placement', () => {
     } as const;
     const { rerender } = render(<ButtonArea {...props} />);
 
-    expect(screen.queryByTestId('model-config-trigger')).toBeNull();
-    expect(screen.getByTitle('chat.currentModel')).toBeTruthy();
-    expect(screen.getByTitle('Select reasoning depth')).toBeTruthy();
-    expect(screen.getByTitle('Select Codex speed mode')).toBeTruthy();
+    const modelConfigTrigger = screen.getByTestId('model-config-trigger');
+    expect(modelConfigTrigger).toBeTruthy();
+    expect(screen.queryByTitle('chat.currentModel')).toBeNull();
+    expect(screen.queryByTitle('Select reasoning depth')).toBeNull();
+    expect(screen.queryByTitle('Select Codex speed mode')).toBeNull();
 
-    const contextSelector = screen.getByTestId('codex-context-window-select');
-    fireEvent.click(contextSelector.querySelector('button')!);
+    fireEvent.click(modelConfigTrigger);
+    expect(screen.getByTestId('model-selector-dropdown')).toBeTruthy();
+    expect(screen.getByTestId('model-config-option-codex-context')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('model-config-option-codex-context'));
     expect(screen.getAllByRole('option')).toHaveLength(3);
 
+    fireEvent.click(modelConfigTrigger);
     rerender(<ButtonArea {...props} currentProvider="claude" />);
-    expect(screen.queryByTestId('codex-context-window-select')).toBeNull();
+    expect(screen.queryByTestId('model-config-option-codex-context')).toBeNull();
   });
 });

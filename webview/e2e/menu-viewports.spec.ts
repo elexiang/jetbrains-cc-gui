@@ -237,6 +237,39 @@ test('footer selector menus render inside the viewport', async ({ page }) => {
   expect(significantErrors(errors)).toEqual([]);
 });
 
+test('Codex auto review appears only after the SDK confirms support', async ({ page }) => {
+  await page.addInitScript(() => {
+    // JCEF sets this before user changes can be persisted across tabs.
+    window.__CCGUI_PAGE_CONTEXT_READY__ = true;
+    const saved = JSON.parse(localStorage.getItem('model-selection-state') || '{}');
+    localStorage.setItem('model-selection-state', JSON.stringify({ ...saved, provider: 'codex' }));
+  });
+  await page.goto('/');
+  await expect(page.locator('.button-area').first()).toHaveAttribute('data-provider', 'codex');
+  await page.locator('.button-area-left .selector-button').nth(2).click();
+  await expect(page.getByTestId('mode-option-default')).toBeVisible();
+  await expect(page.getByTestId('mode-option-auto')).toHaveCount(0);
+
+  await page.evaluate(() => window.updateDependencyStatus?.(JSON.stringify({
+    'codex-sdk': { installed: true, meetsMinimumVersion: true },
+  })));
+  await expect(page.getByTestId('mode-option-auto')).toBeVisible();
+  await page.getByTestId('mode-option-auto').click();
+  await expect.poll(() => page.evaluate(() => JSON.parse(
+    localStorage.getItem('model-selection-state') || '{}',
+  ).codexPermissionMode)).toBe('auto');
+
+  await page.evaluate(() => window.updateDependencyStatus?.(JSON.stringify({
+    'codex-sdk': { installed: true, meetsMinimumVersion: false },
+  })));
+  await expect.poll(() => page.evaluate(() => JSON.parse(
+    localStorage.getItem('model-selection-state') || '{}',
+  ).codexPermissionMode)).toBe('default');
+  await page.locator('.button-area-left .selector-button').nth(2).click();
+  await expect(page.getByTestId('mode-option-default')).toBeVisible();
+  await expect(page.getByTestId('mode-option-auto')).toHaveCount(0);
+});
+
 test('config submenus stay visible across constrained viewports', async ({ page }) => {
   const errors = collectPageErrors(page);
   await page.goto('/');
@@ -292,7 +325,10 @@ test('long model and mode text stays contained in selector menus', async ({ page
   await closeOpenMenus(page);
 
   await buttons.nth(3).click();
-  const modelDropdown = page.locator('.model-selector-dropdown');
+  const modelConfigDropdown = page.locator('.model-config-dropdown');
+  await expect(modelConfigDropdown).toBeVisible();
+  await expectInsideViewport(page, modelConfigDropdown, 'model config dropdown');
+  const modelDropdown = modelConfigDropdown.getByTestId('model-selector-dropdown');
   await expect(modelDropdown).toBeVisible();
   await expectInsideViewport(page, modelDropdown, 'model dropdown with long custom model');
   const longModelOption = modelDropdown.locator('.selector-option').filter({ hasText: LONG_MODEL.label }).first();
@@ -313,9 +349,11 @@ test('large model selector remains searchable and capped', async ({ page }) => {
 
   const modelButton = page.locator('.button-area-left .selector-button').nth(3);
   await modelButton.click();
-  const modelDropdown = page.locator('.model-selector-dropdown');
+  const modelConfigDropdown = page.locator('.model-config-dropdown');
+  await expect(modelConfigDropdown).toBeVisible();
+  const modelDropdown = modelConfigDropdown.getByTestId('model-selector-dropdown');
   await expect(modelDropdown).toBeVisible();
-  await expectInsideViewport(page, modelDropdown, 'large model dropdown');
+  await expectInsideViewport(page, modelConfigDropdown, 'large model dropdown');
 
   const renderedLargeModels = modelDropdown.getByText(/^Large Model \d{3}$/);
   await expect(renderedLargeModels).toHaveCount(100);
@@ -329,7 +367,7 @@ test('large model selector remains searchable and capped', async ({ page }) => {
   const targetOption = modelDropdown.locator('.selector-option').filter({ hasText: SEARCH_TARGET_MODEL.label }).first();
   await expect(targetOption).toBeVisible();
   await targetOption.click();
-  await expect(modelButton).toHaveAttribute('title', new RegExp(SEARCH_TARGET_MODEL.label));
+  await expect(targetOption).toHaveClass(/selected/);
 
   expect(significantErrors(errors)).toEqual([]);
 });
