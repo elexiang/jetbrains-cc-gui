@@ -9,6 +9,7 @@ import {
 import type { Attachment, ChatInputBoxHandle, PermissionMode, ReasoningEffort, SelectedAgent, CodexFastMode } from '../components/ChatInputBox/types';
 import { expandQuoteTokens } from '../components/ChatInputBox/utils/quoteRegistry';
 import type { ViewMode } from './useModelProviderState';
+import { stabilizeMessageTurnOrder } from './windowCallbacks/messageSync';
 
 /**
  * Command sets for local handling (shared with App.tsx to avoid duplication)
@@ -373,7 +374,9 @@ export function useMessageSender({
       isOptimistic: true,
       raw: { message: { content: userContentBlocks } },
     };
-    setMessages((prev) => [...prev, userMessage]);
+    // Keep the newly visible turn in chronological order if a delayed snapshot
+    // left an older user turn behind a newer one.
+    setMessages((prev) => stabilizeMessageTurnOrder([...prev, userMessage]));
 
     // Set loading state
     setLoading(true);

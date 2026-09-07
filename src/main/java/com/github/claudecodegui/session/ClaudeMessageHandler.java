@@ -535,7 +535,7 @@ public class ClaudeMessageHandler implements MessageCallback {
             }
 
             // Find the latest unresolved matching user message and patch its uuid.
-            List<Message> messages = state.getMessagesReference();
+            List<Message> messages = state.getMessagesSnapshot();
             for (int i = messages.size() - 1; i >= 0; i--) {
                 Message msg = messages.get(i);
                 if (msg.type != Message.Type.USER) {

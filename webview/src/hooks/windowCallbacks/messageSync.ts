@@ -264,6 +264,118 @@ export const getMessageTimestampMs = (message: ClaudeMessage): number | undefine
 };
 
 /**
+ * Whether a user message starts a human conversation turn.
+ *
+ * Tool results are represented as user-role messages by the provider adapters,
+ * but they belong to the preceding assistant turn and must not become their
+ * own sortable turn.  Keep this check local to the sync layer so the ordering
+ * repair applies consistently to live snapshots and restored history.
+ */
+const isHumanUserMessage = (message: ClaudeMessage): boolean => {
+  if (message.type !== 'user') return false;
+
+  let raw: unknown = message.raw;
+  if (typeof raw === 'string') {
+    try {
+      raw = JSON.parse(raw);
+    } catch {
+      raw = undefined;
+    }
+  }
+
+  const rawObject = raw && typeof raw === 'object' ? raw as Record<string, unknown> : undefined;
+  const nestedMessage = rawObject?.message;
+  const nestedObject = nestedMessage && typeof nestedMessage === 'object'
+    ? nestedMessage as Record<string, unknown>
+    : undefined;
+  const rawContent = rawObject?.content ?? nestedObject?.content;
+
+  if (Array.isArray(rawContent)) {
+    return rawContent.some((block) => {
+      if (!block || typeof block !== 'object') return false;
+      const blockType = (block as Record<string, unknown>).type;
+      return blockType === 'text'
+        || blockType === 'input_text'
+        || blockType === 'image';
+    });
+  }
+
+  return message.content !== '[tool_result]';
+};
+
+interface MessageTurnGroup {
+  messages: ClaudeMessage[];
+  firstIndex: number;
+  userTimestampMs?: number;
+}
+
+/**
+ * Repair an inverted transcript when an older human turn arrives after a
+ * newer one.
+ *
+ * The visible timestamp is not treated as a general-purpose sort key.  We
+ * only use the timestamp of each human turn to detect a clear inversion, then
+ * move the complete turn (assistant/tool-result messages included) as one
+ * unit.  If any turn lacks a trustworthy timestamp, the existing provider
+ * order remains authoritative instead of risking a destructive reorder.
+ */
+export const stabilizeMessageTurnOrder = (messages: ClaudeMessage[]): ClaudeMessage[] => {
+  if (messages.length < 2) return messages;
+
+  const groups: MessageTurnGroup[] = [];
+  let currentGroup: MessageTurnGroup | undefined;
+
+  messages.forEach((message, index) => {
+    if (isHumanUserMessage(message)) {
+      currentGroup = {
+        messages: [message],
+        firstIndex: index,
+        userTimestampMs: getMessageTimestampMs(message),
+      };
+      groups.push(currentGroup);
+      return;
+    }
+
+    if (!currentGroup) {
+      currentGroup = { messages: [message], firstIndex: index };
+      groups.push(currentGroup);
+      return;
+    }
+    currentGroup.messages.push(message);
+  });
+
+  // Do not guess how to place assistant-only/background records.  A complete
+  // set of human-turn anchors is required before this repair can move groups.
+  if (groups.length < 2) {
+    return messages;
+  }
+
+  // This function runs on every full snapshot reconciliation.  Keep the common
+  // already-ordered path linear and avoid sorting a long history unnecessarily.
+  let alreadyOrdered = true;
+  for (let i = 0; i < groups.length; i += 1) {
+    const timestamp = groups[i].userTimestampMs;
+    if (typeof timestamp !== 'number' || !Number.isFinite(timestamp)) {
+      return messages;
+    }
+    if (i > 0 && timestamp < groups[i - 1].userTimestampMs!) {
+      alreadyOrdered = false;
+    }
+  }
+  if (alreadyOrdered) return messages;
+
+  const sortedGroups = [...groups].sort((a, b) => {
+    const timestampDelta = (a.userTimestampMs as number) - (b.userTimestampMs as number);
+    return timestampDelta !== 0 ? timestampDelta : a.firstIndex - b.firstIndex;
+  });
+
+  const unchanged = sortedGroups.every((group, index) => group === groups[index]);
+  if (unchanged) return messages;
+
+  return sortedGroups.flatMap((group) => group.messages);
+};
+
+/**
  * Preserve the identity (timestamp / uuid) of the last assistant message
  * across list updates.
  */

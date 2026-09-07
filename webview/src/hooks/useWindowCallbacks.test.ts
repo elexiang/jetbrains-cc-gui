@@ -589,6 +589,155 @@ describe('useWindowCallbacks integration', () => {
     expect(opts.setMessages).toHaveBeenCalled();
   });
 
+  it('repairs an inverted human-turn order when a delayed snapshot arrives', () => {
+    const newerUser: ClaudeMessage = {
+      type: 'user',
+      content: '14:11 prompt',
+      timestamp: '2026-08-31T06:11:00.000Z',
+    };
+    const newerAssistant: ClaudeMessage = {
+      type: 'assistant',
+      content: '14:11 answer',
+      timestamp: '2026-08-31T06:11:01.000Z',
+    };
+    const olderUser: ClaudeMessage = {
+      type: 'user',
+      content: '11:43 prompt',
+      timestamp: '2026-08-31T03:43:00.000Z',
+    };
+    const olderAssistant: ClaudeMessage = {
+      type: 'assistant',
+      content: '11:43 answer',
+      timestamp: '2026-08-31T03:43:01.000Z',
+    };
+    const { opts, buffer } = createOptsWithMessages([
+      newerUser,
+      newerAssistant,
+      olderUser,
+      olderAssistant,
+    ]);
+    renderHook(() => useWindowCallbacks(opts));
+
+    act(() => {
+      window.updateMessages!(JSON.stringify([
+        newerUser,
+        newerAssistant,
+        olderUser,
+        olderAssistant,
+      ]));
+    });
+
+    expect(buffer.current.map(message => message.content)).toEqual([
+      '11:43 prompt',
+      '11:43 answer',
+      '14:11 prompt',
+      '14:11 answer',
+    ]);
+  });
+
+  it.each(['claude', 'codex'] as const)(
+    'replays delayed out-of-order full snapshots for %s without changing turn order',
+    (provider) => {
+      vi.useFakeTimers();
+
+      const olderUser: ClaudeMessage = {
+        type: 'user',
+        content: '11:43 prompt',
+        timestamp: '2026-08-31T03:43:00.000Z',
+      };
+      const olderAssistant: ClaudeMessage = {
+        type: 'assistant',
+        content: '11:43 answer',
+        timestamp: '2026-08-31T03:43:01.000Z',
+      };
+      const newerUser: ClaudeMessage = {
+        type: 'user',
+        content: '14:11 prompt',
+        timestamp: '2026-08-31T06:11:00.000Z',
+      };
+      const newerAssistant: ClaudeMessage = {
+        type: 'assistant',
+        content: '14:11 answer',
+        timestamp: '2026-08-31T06:11:01.000Z',
+      };
+      const newerToolResult: ClaudeMessage = {
+        type: 'user',
+        content: '[tool_result]',
+        timestamp: '2026-08-31T06:11:02.000Z',
+        raw: {
+          content: [{ type: 'tool_result', tool_use_id: 'replay-tool', content: 'ok' }],
+        } as never,
+      };
+
+      const orderedSnapshot = [
+        olderUser,
+        olderAssistant,
+        newerUser,
+        newerAssistant,
+        newerToolResult,
+      ];
+      const invertedSnapshot = [
+        newerUser,
+        newerAssistant,
+        newerToolResult,
+        olderUser,
+        olderAssistant,
+      ];
+      const { opts, buffer } = createOptsWithMessages([]);
+      opts.currentProviderRef.current = provider;
+      renderHook(() => useWindowCallbacks(opts));
+
+      type ReplayEvent = {
+        atMs: number;
+        label: string;
+        snapshot: ClaudeMessage[];
+      };
+      const replayPlans: Array<Array<{ delayMs: number; snapshot: ClaudeMessage[] }>> = [
+        [
+          { delayMs: 0, snapshot: orderedSnapshot },
+          { delayMs: 43, snapshot: invertedSnapshot },
+        ],
+        [
+          { delayMs: 0, snapshot: orderedSnapshot },
+          { delayMs: 9, snapshot: orderedSnapshot },
+          { delayMs: 47, snapshot: invertedSnapshot },
+        ],
+        [
+          { delayMs: 0, snapshot: orderedSnapshot },
+          { delayMs: 4, snapshot: invertedSnapshot },
+          { delayMs: 19, snapshot: orderedSnapshot },
+          { delayMs: 53, snapshot: invertedSnapshot },
+        ],
+      ];
+      const replayEvents: ReplayEvent[] = replayPlans.flatMap((plan, cycle) => plan.map((event, index) => ({
+        atMs: cycle * 100 + event.delayMs,
+        label: `cycle-${cycle}-event-${index}`,
+        snapshot: event.snapshot,
+      })));
+      const delivered: string[] = [];
+
+      replayEvents.forEach((event) => {
+        setTimeout(() => {
+          delivered.push(event.label);
+          window.updateMessages!(JSON.stringify(event.snapshot));
+        }, event.atMs);
+      });
+
+      act(() => {
+        vi.advanceTimersByTime(Math.max(...replayEvents.map((event) => event.atMs)) + 1);
+      });
+
+      expect(delivered).toEqual(replayEvents.map((event) => event.label));
+      expect(buffer.current.map((message) => message.content)).toEqual([
+        '11:43 prompt',
+        '11:43 answer',
+        '14:11 prompt',
+        '14:11 answer',
+        '[tool_result]',
+      ]);
+    },
+  );
+
   it('reports one DOM commit when restored history arrives after completion', () => {
     const opts = createOptions();
     vi.useFakeTimers();

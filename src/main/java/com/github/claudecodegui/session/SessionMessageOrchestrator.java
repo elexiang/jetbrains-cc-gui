@@ -9,6 +9,7 @@ import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -143,6 +144,11 @@ public class SessionMessageOrchestrator {
             return CompletableFuture.completedFuture(null);
         }
 
+        // If a send or stream callback mutates the state while the provider
+        // history is being read, the loaded snapshot is stale and must not
+        // overwrite the newer live turn.
+        long loadStartRevision = state.getMessagesRevision();
+
         state.setLoading(true);
         callbackFacade.notifyStateChange(state.isBusy(), state.isLoading(), state.getError());
 
@@ -161,12 +167,17 @@ public class SessionMessageOrchestrator {
 
                 LOG.debug("Received " + serverMessages.size() + " messages from server");
 
-                state.clearMessages();
+                List<ClaudeSession.Message> parsedMessages = new ArrayList<>();
                 for (JsonObject msg : serverMessages) {
                     ClaudeSession.Message message = messageParser.parseServerMessage(msg);
                     if (message != null) {
-                        state.addMessage(message);
+                        parsedMessages.add(message);
                     }
+                }
+
+                if (!state.replaceMessagesIfRevision(loadStartRevision, parsedMessages)) {
+                    LOG.info("Skipping stale session history replacement; live messages changed during load");
+                    return;
                 }
 
                 restoreTokenUsage(serverMessages);
@@ -195,7 +206,7 @@ public class SessionMessageOrchestrator {
         }
 
         String uuid = historyMessage.get("uuid").getAsString();
-        List<ClaudeSession.Message> localMessages = state.getMessagesReference();
+        List<ClaudeSession.Message> localMessages = state.getMessagesSnapshot();
         for (int i = localMessages.size() - 1; i >= 0; i--) {
             ClaudeSession.Message localMsg = localMessages.get(i);
             if (localMsg.type != ClaudeSession.Message.Type.USER) {
@@ -234,7 +245,7 @@ public class SessionMessageOrchestrator {
     }
 
     private ClaudeSession.Message findLatestUnresolvedUserMessage() {
-        List<ClaudeSession.Message> messages = state.getMessagesReference();
+        List<ClaudeSession.Message> messages = state.getMessagesSnapshot();
         for (int i = messages.size() - 1; i >= 0; i--) {
             ClaudeSession.Message message = messages.get(i);
             if (message.type != ClaudeSession.Message.Type.USER) {

@@ -12,6 +12,7 @@ import {
   preserveLatestMessagesOnShrink,
   preserveMessageIdentity,
   preserveStreamingAssistantContent,
+  stabilizeMessageTurnOrder,
   stripDuplicateTrailingToolMessages,
   stripUuidFromRaw,
 } from '../messageSync';
@@ -143,6 +144,47 @@ describe('getMessageTimestampMs', () => {
       timestamp: 'invalid-date',
     };
     expect(getMessageTimestampMs(msg)).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// stabilizeMessageTurnOrder
+// ---------------------------------------------------------------------------
+
+describe('stabilizeMessageTurnOrder', () => {
+  it('moves a delayed older turn before a newer turn as one complete group', () => {
+    const newerUser = makeUserMsg('newer prompt', { timestamp: '2026-08-31T06:11:00.000Z' });
+    const newerAssistant = makeAssistantMsg('newer answer', { timestamp: '2026-08-31T06:11:01.000Z' });
+    const newerToolResult = makeUserMsg('[tool_result]', {
+      timestamp: '2026-08-31T06:11:02.000Z',
+      raw: { message: { content: [{ type: 'tool_result', tool_use_id: 'new-tool' }] } } as any,
+    });
+    const olderUser = makeUserMsg('older prompt', { timestamp: '2026-08-31T03:43:00.000Z' });
+    const olderAssistant = makeAssistantMsg('older answer', { timestamp: '2026-08-31T03:43:01.000Z' });
+
+    const result = stabilizeMessageTurnOrder([
+      newerUser,
+      newerAssistant,
+      newerToolResult,
+      olderUser,
+      olderAssistant,
+    ]);
+
+    expect(result).toEqual([
+      olderUser,
+      olderAssistant,
+      newerUser,
+      newerAssistant,
+      newerToolResult,
+    ]);
+  });
+
+  it('leaves the provider order unchanged when a turn has no trustworthy timestamp', () => {
+    const newerUser = makeUserMsg('newer prompt', { timestamp: '2026-08-31T06:11:00.000Z' });
+    const olderUserWithoutTimestamp = makeUserMsg('older prompt', { timestamp: undefined });
+
+    const input = [newerUser, makeAssistantMsg('newer answer'), olderUserWithoutTimestamp];
+    expect(stabilizeMessageTurnOrder(input)).toBe(input);
   });
 });
 
