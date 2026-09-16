@@ -40,6 +40,29 @@ const codexModels = [
 ];
 
 describe('ModelConfigSelect', () => {
+  it('preserves the Codex context callback through the extracted submenu', () => {
+    const onContextChange = vi.fn();
+    render(
+      <ModelConfigSelect
+        selectedModel="gpt-5.6-sol"
+        models={codexModels}
+        currentProvider="codex"
+        onModelSelect={vi.fn()}
+        codexContextWindow="default"
+        onCodexContextWindowChange={onContextChange}
+      />,
+    );
+
+    const trigger = screen.getByTestId('model-config-trigger');
+    expect(trigger.textContent).toContain('Default 272K');
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByTestId('model-config-option-codex-context'));
+    fireEvent.click(screen.getByRole('checkbox', { name: '1M' }));
+
+    expect(onContextChange).toHaveBeenCalledWith('1m');
+    expect(screen.queryByTestId('model-config-dropdown')).toBeNull();
+  });
+
   it('collapses model and effort into one summary trigger', () => {
     render(
       <ModelConfigSelect
