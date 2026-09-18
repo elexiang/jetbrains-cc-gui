@@ -30,6 +30,7 @@ vi.mock('react-i18next', () => ({
       'settings.provider.localProviderName': 'Use local settings.json',
       'settings.provider.cliLoginProviderName': 'Use CLI login',
       'settings.codexProvider.dialog.cliLoginProviderName': 'Use local Codex config',
+      'settings.codexProvider.dialog.chatGPTProviderName': 'ChatGPT Chat',
     } as Record<string, string>)[key] ?? (typeof options === 'string' ? options : key),
   }),
 }));
@@ -123,6 +124,27 @@ describe('ConfigSelect runtime provider submenu', () => {
     fireEvent.click(within(submenu).getByText('Codex Proxy'));
 
     expect(window.sendToJava).toHaveBeenCalledWith('switch_codex_provider:{"id":"codex-proxy"}');
+  });
+
+  it('shows and switches the ChatGPT Chat Codex provider', async () => {
+    render(<ConfigSelect currentProvider="codex" />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Configure/i }));
+    fireEvent.mouseEnter(screen.getByText('Switch provider').closest('.selector-option')!);
+
+    act(() => {
+      window.updateCodexProviders?.(JSON.stringify([
+        { id: SPECIAL_PROVIDER_IDS.CHATGPT_CHAT, name: 'virtual chat', isActive: false },
+      ]));
+    });
+
+    const submenu = await screen.findByRole('listbox');
+    expect(within(submenu).getByText('ChatGPT Chat')).toBeTruthy();
+    fireEvent.click(within(submenu).getByText('ChatGPT Chat'));
+
+    expect(window.sendToJava).toHaveBeenCalledWith(
+      'switch_codex_provider:{"id":"__chatgpt_chat__"}'
+    );
   });
 
   it('refreshes selected provider when backend confirms active provider change', async () => {

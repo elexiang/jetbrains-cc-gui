@@ -1170,6 +1170,8 @@
         "modelLabelPlaceholder": "显示名称（可选）",
         "modelDescPlaceholder": "模型描述（可选）",
         "cliLoginProviderName": "使用本地配置信息",
+        "chatGPTProviderName": "ChatGPT Chat",
+        "chatGPTProviderDescription": "网页聊天独立登录；网页模型在“登录与设置”中选择，不回退到 Codex",
         "cliLoginProviderDescription": "让插件读取你已有的 ~/.codex/config.toml 和 auth.json 来发起 Codex 请求——如果你已经通过 Codex CLI 配置好、想直接复用那套配置，选这个最合适。\n\n• 插件只会读取这些文件，绝不会修改它们。\n• 你随时可以取消授权。\n• 适合喜欢手动管理配置的高级用户。\n• 适合使用第三方 cc-switch 管理的用户。",
         "cliLoginAuthorizeTitle": "授权读取本地 Codex 配置",
         "cliLoginAuthorizeMessage": "插件将读取 ~/.codex/config.toml 和 auth.json 中已有的本地配置。",

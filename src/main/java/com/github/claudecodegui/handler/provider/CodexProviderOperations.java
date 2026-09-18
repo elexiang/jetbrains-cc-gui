@@ -24,6 +24,19 @@ public class CodexProviderOperations {
         this.context = context;
     }
 
+    /** 在本地浏览器打开插件的网页模型登录与设置页。 */
+    public void handleOpenChatGPTWebSettings() {
+        ApplicationManager.getApplication().executeOnPooledThread(() -> {
+            try {
+                String url = com.github.claudecodegui.provider.codex.chatgpt.ChatGPTWebRuntime.settingsUrl();
+                ApplicationManager.getApplication().invokeLater(() -> com.intellij.ide.BrowserUtil.browse(url));
+            } catch (Exception e) {
+                ApplicationManager.getApplication().invokeLater(() ->
+                        context.callJavaScript("window.showError", context.escapeJs("ChatGPT Web 启动失败：" + e.getMessage())));
+            }
+        });
+    }
+
     /**
      * Get all Codex providers
      */

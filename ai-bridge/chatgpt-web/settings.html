@@ -1,0 +1,19 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CC GUI · ChatGPT Web</title>
+<style>body{font:16px/1.7 system-ui;background:#17191d;color:#eee;max-width:820px;margin:40px auto;padding:0 24px}section{background:#24272e;padding:20px;margin:16px 0;border-radius:12px}button,input,select{font:inherit;padding:9px 12px;border-radius:6px;border:1px solid #687080;margin:5px 0}input{display:block;width:90%}button{cursor:pointer;background:#c4e0ff;color:#122338}a{color:#a9d3ff}pre{white-space:pre-wrap}small{color:#bcc4d0}</style>
+<h1>ChatGPT Web</h1><p>直接使用网页登录。代码工具由 CC GUI 的本地执行器处理。此入口拒绝转发到 Codex 模型。</p>
+<section><h2>1 · 登录 ChatGPT</h2><p>打开专用浏览器后登录；看到聊天输入框后关闭该窗口，等待自动验证。已有 Codex 登录不能代替这一步。</p><button id="login">打开网页登录</button></section>
+<section><h2>2 · 连接本地代码工具</h2><p>在同一账号创建 <a href="https://platform.openai.com/settings/organization/tunnels" target="_blank" rel="noreferrer">Tunnel</a> 和 <a href="https://platform.openai.com/settings/organization/api-keys" target="_blank" rel="noreferrer">Tunnel 所需 API key</a>。Key 仅用于工具通道，不作为模型 API key。</p>
+<label>Tunnel ID<input id="tunnel" placeholder="tunnel_…" autocomplete="off"></label><label>API key<input id="key" type="password" autocomplete="off"></label><button id="connect">保存并连接 Tunnel</button> <button id="reconnect">重新连接已保存的 Tunnel</button>
+<p>然后打开 <a href="https://chatgpt.com/#settings/Plugins" target="_blank" rel="noreferrer">ChatGPT 应用设置</a>，启用 Developer Mode，创建 <b>Codex Native2</b> 连接器，选择上述 Tunnel、Authentication: None，并允许所需工具操作。</p><small>首次连接会下载上游固定版本的 OpenAI tunnel-client 并校验 SHA-256。无需安装第三方桌面程序。</small></section>
+<section><h2>3 · 选择网页模型</h2><select id="model"></select> <button id="save">保存模型</button><p>此处的网页模型用于 ChatGPT Web 请求；CC GUI 底栏普通 GPT 模型及 Fast 设置不控制此入口。</p></section>
+<section><h2>状态</h2><pre id="status">正在连接…</pre><p>完成登录与连接器设置后，返回 CC GUI，启用 ChatGPT Web，<b>新建会话</b>并提交代码任务。请勿继续之前的 Codex 测试会话。</p><small>上游源码：codex-chatgpt-web v5.0.8 / MIT。网页接口为非官方自动化，可能随网页更新失效。状态就绪不代表已验证账号额度；首次真实代码任务仍需验收。</small></section>
+<script>
+const token=location.hash.slice(1);history.replaceState(null,'',location.pathname);
+const $=id=>document.getElementById(id);let populated=false;
+async function request(path,body){const r=await fetch(path,{method:body?'POST':'GET',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});const data=await r.json();if(!r.ok)throw Error(data.error?.message||'连接失败');return data}
+async function refresh(){try{const s=await request('/settings/status');$('status').textContent='路由：'+s.route+'\n网页登录：'+(s.loggedIn?'已验证':'未完成')+'\nTunnel：'+(s.tunnelReady?'已连接（仍需创建 ChatGPT 连接器）':'未连接')+'\n当前模型：'+s.selected.id+'\n'+s.job.message;
+const ids=s.models.map(m=>m.id).join();if(!populated||$('model').dataset.ids!==ids){$('model').replaceChildren(...s.models.map(m=>{const o=document.createElement('option');o.value=m.id;o.textContent=m.name;return o}));$('model').value=s.selected.id;$('model').dataset.ids=ids;populated=true}document.querySelectorAll('button').forEach(b=>b.disabled=s.job.running||s.activeTurns>0)}catch(e){$('status').textContent=e.message+'；请从 CC GUI 重新打开本页。'}}
+async function act(path,body={}){try{await request(path,body);await refresh()}catch(e){$('status').textContent=e.message}}
+$('login').onclick=()=>act('/settings/login');$('connect').onclick=()=>{const body={tunnelId:$('tunnel').value.trim(),key:$('key').value};$('key').value='';return act('/settings/connect',body)};$('reconnect').onclick=()=>act('/settings/reconnect');$('save').onclick=()=>act('/settings/model',{model:$('model').value});refresh();setInterval(refresh,2500);
+</script></html>

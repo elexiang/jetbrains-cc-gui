@@ -199,6 +199,20 @@ public class CodemossSettingsServiceCodexCliLoginTest {
     }
 
     @Test
+    public void shouldUseManagedRuntimeForVirtualChatGPTWebProvider() throws Exception {
+        Path tempHome = Files.createTempDirectory("codex-chatgpt-login-provider-home");
+        useTemporaryHomeDirectory(tempHome);
+        CodemossSettingsService service = new CodemossSettingsService();
+        service.setCodexLocalConfigAuthorized(true);
+        service.switchCodexProvider(CodexProviderManager.CHATGPT_CHAT_PROVIDER_ID);
+
+        assertEquals(
+                CodemossSettingsService.CODEX_RUNTIME_ACCESS_MANAGED,
+                service.getCodexRuntimeAccessMode()
+        );
+    }
+
+    @Test
     public void shouldMigrateMatchingLegacyActiveProviderToAppliedMarkers() throws Exception {
         Path tempHome = Files.createTempDirectory("codex-legacy-provider-migration-home");
         useTemporaryHomeDirectory(tempHome);

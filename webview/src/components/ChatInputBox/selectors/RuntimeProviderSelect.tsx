@@ -80,6 +80,12 @@ export const RuntimeProviderSelect = ({ currentProvider, embedded = false, trigg
       return t('settings.codexProvider.dialog.cliLoginProviderName');
     }
 
+    if (kind === 'codex' && provider.id === SPECIAL_PROVIDER_IDS.CHATGPT_CHAT) {
+      return t('settings.codexProvider.dialog.chatGPTProviderName', {
+        defaultValue: provider.name || 'ChatGPT Chat',
+      });
+    }
+
     return provider.name || provider.id;
   }, [t]);
 

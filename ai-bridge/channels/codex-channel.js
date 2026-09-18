@@ -37,7 +37,8 @@ export async function handleCodexCommand(command, args, stdinData) {
           apiKey || '',
           (reasoningEffort || 'medium'),
           serviceTier || '',
-          attachments || []  // Pass attachments to message service
+          attachments || [],
+          stdinData.chatGPTWeb === true
         );
       } else {
         await codexSendMessage(args[0], args[1], args[2], args[3], args[4]);

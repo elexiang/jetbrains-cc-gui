@@ -1165,6 +1165,8 @@
         "modelLabelPlaceholder": "Display name (optional)",
         "modelDescPlaceholder": "Model description (optional)",
         "cliLoginProviderName": "Codex CLI Login",
+        "chatGPTProviderName": "ChatGPT Chat",
+        "chatGPTProviderDescription": "Separate browser login; select the Web model in Setup. No Codex fallback.",
         "cliLoginProviderDescription": "Lets the plugin read your existing ~/.codex/config.toml and auth.json to make Codex requests — perfect if you already configure Codex through the CLI and want to reuse that exact setup.\n\n• The plugin only reads these files; it never modifies them.\n• You can revoke this authorization at any time.\n• Best for advanced users who manage config manually.\n• Ideal if you manage providers with a third-party tool like cc-switch.",
         "cliLoginAuthorizeTitle": "Authorize Local Codex Config Access",
         "cliLoginAuthorizeMessage": "The plugin will read the existing local configuration from ~/.codex/config.toml and auth.json.",

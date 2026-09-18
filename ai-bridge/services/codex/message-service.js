@@ -88,7 +88,8 @@ export async function sendMessage(
   apiKey = null,
   reasoningEffort = 'medium',
   serviceTier = null,
-  attachments = []
+  attachments = [],
+  chatGPTWeb = false
 ) {
   let streamStarted = false;
   let streamEnded = false;
@@ -102,6 +103,9 @@ export async function sendMessage(
 
   try {
     const normalizedPermissionMode = normalizeCodexPermissionMode(permissionMode || 'default');
+    if (chatGPTWeb && normalizedPermissionMode === 'auto') {
+      throw new Error('ChatGPT Web 不使用 Codex 自动审批模型。请选择默认/手动审批或你授权的其他权限模式。');
+    }
 
     console.log('[DEBUG] Codex sendMessage called with params:', {
       threadId,
@@ -203,6 +207,28 @@ export async function sendMessage(
     }
 
     applyCodexApprovalsReviewerConfig(codexOptions, permissionConfig);
+    if (chatGPTWeb) {
+      const url = new URL(baseUrl);
+      if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || !model?.startsWith('chatgpt-web/')) {
+        throw new Error('ChatGPT Web requires its local browser runtime and a chatgpt-web model');
+      }
+      // Per-process override only: do not change ~/.codex/config.toml or auth.json.
+      // The SDK's explicit baseUrl/apiKey options become `openai_base_url` and
+      // `CODEX_API_KEY` on the short-lived Codex CLI child. Keeping both values
+      // here is intentional: the local service accepts this bearer token, while
+      // the loopback URL prevents the request from reaching the native endpoint.
+      codexOptions.config = {
+        ...codexOptions.config,
+        web_search: 'disabled',
+        model_context_window: 90000,
+        model_auto_compact_token_limit: 80000,
+        features: { ...codexOptions.config.features, fast_mode: false },
+      };
+      delete cliEnv.OPENAI_API_KEY;
+      delete cliEnv.CODEX_API_KEY;
+      cliEnv.NO_PROXY = [cliEnv.NO_PROXY, '127.0.0.1', 'localhost'].filter(Boolean).join(',');
+      console.log('[DEBUG] Route: chatgpt-web-only; native Codex fallback disabled');
+    }
     const codex = new Codex(codexOptions);
 
     // ============================================================

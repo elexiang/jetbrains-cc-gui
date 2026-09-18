@@ -2,6 +2,7 @@ package com.github.claudecodegui.settings;
 
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.model.DeleteResult;
+import com.github.claudecodegui.provider.codex.chatgpt.ChatGPTProxyManager;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
 
@@ -27,21 +28,36 @@ public class CodexProviderManager {
     private static final String APPLIED_PROVIDER_REVISION_KEY = "appliedProviderRevision";
     private static final Object PROVIDER_STATE_LOCK = new Object();
     public static final String CODEX_CLI_LOGIN_PROVIDER_ID = "__codex_cli_login__";
+    public static final String CHATGPT_CHAT_PROVIDER_ID = "__chatgpt_chat__";
+    public static final String CHATGPT_CHAT_PROVIDER_TYPE = "chatgpt_login";
+    private static final String CHATGPT_CHAT_MODE_KEY = "chatGPTChatMode";
+    private static final String CHATGPT_CHAT_LOGIN_MODE = "login";
 
     private final Function<Void, JsonObject> configReader;
     private final Consumer<JsonObject> configWriter;
     private final ConfigPathManager pathManager;
     private final CodexSettingsManager codexSettingsManager;
+    private final ChatGPTProxyManager chatGPTProxyManager;
 
     public CodexProviderManager(
             Function<Void, JsonObject> configReader,
             Consumer<JsonObject> configWriter,
             ConfigPathManager pathManager,
             CodexSettingsManager codexSettingsManager) {
+        this(configReader, configWriter, pathManager, codexSettingsManager, new ChatGPTProxyManager());
+    }
+
+    CodexProviderManager(
+            Function<Void, JsonObject> configReader,
+            Consumer<JsonObject> configWriter,
+            ConfigPathManager pathManager,
+            CodexSettingsManager codexSettingsManager,
+            ChatGPTProxyManager chatGPTProxyManager) {
         this.configReader = configReader;
         this.configWriter = configWriter;
         this.pathManager = pathManager;
         this.codexSettingsManager = codexSettingsManager;
+        this.chatGPTProxyManager = chatGPTProxyManager;
     }
 
     /**
@@ -63,6 +79,9 @@ public class CodexProviderManager {
         // Add CLI Login virtual provider at the top
         result.add(createCodexCliLoginProviderObject(
                 CODEX_CLI_LOGIN_PROVIDER_ID.equals(currentId) && cliLoginAuthorized));
+        // ChatGPT Chat is also virtual and is intentionally not persisted in
+        // codex.providers. Keep it immediately below local CLI login.
+        result.add(createChatGPTChatProviderObject(CHATGPT_CHAT_PROVIDER_ID.equals(currentId)));
 
         if (!config.has("codex")) {
             return result;
@@ -148,6 +167,10 @@ public class CodexProviderManager {
                 return null;
             }
             return createCodexCliLoginProviderObject(true);
+        }
+
+        if (CHATGPT_CHAT_PROVIDER_ID.equals(currentId)) {
+            return createChatGPTChatProviderObject(true);
         }
 
         if (!codex.has("providers")) {
@@ -450,35 +473,43 @@ public class CodexProviderManager {
         codex.add("providers", providers);
         String nextId = id == null ? "" : id.trim();
         boolean useCliLogin = CODEX_CLI_LOGIN_PROVIDER_ID.equals(nextId);
+        boolean useChatGPTChat = CHATGPT_CHAT_PROVIDER_ID.equals(nextId);
 
-        // CLI Login is a virtual provider — no need to check providers map
-        if (!nextId.isEmpty() && !useCliLogin && !providers.has(nextId)) {
+        // Virtual providers are generated dynamically and never enter the
+        // persisted providers map.
+        if (!nextId.isEmpty() && !isVirtualProviderId(nextId) && !providers.has(nextId)) {
             throw new IllegalArgumentException("Provider with id '" + nextId + "' not found");
         }
 
         String previousId = getCurrentId(codex);
-        JsonObject previousProvider = providers.has(previousId)
-                ? providerWithId(providers.getAsJsonObject(previousId), previousId)
-                : null;
-        JsonObject nextProvider = !nextId.isEmpty() && !useCliLogin
-                ? providerWithId(providers.getAsJsonObject(nextId), nextId)
-                : null;
+        JsonObject previousProvider = createProviderForTransition(previousId, providers, codex, false);
+        JsonObject nextProvider = createProviderForTransition(nextId, providers, codex, true);
 
-        codexSettingsManager.transitionProvider(previousProvider, nextProvider, useCliLogin, () -> {
-            if (useCliLogin) {
+        codexSettingsManager.transitionProvider(previousProvider, nextProvider,
+                useCliLogin || useChatGPTChat, () -> {
+            if (useChatGPTChat) {
+                clearAppliedProviderState(codex);
+                codex.addProperty(CHATGPT_CHAT_MODE_KEY, CHATGPT_CHAT_LOGIN_MODE);
+                codex.addProperty("current", CHATGPT_CHAT_PROVIDER_ID);
+            } else if (useCliLogin) {
                 clearAppliedProviderState(codex);
                 if (authorizeCliLogin) {
                     codex.addProperty("localConfigAuthorized", true);
                 }
                 codex.addProperty("current", CODEX_CLI_LOGIN_PROVIDER_ID);
             } else if (nextProvider != null) {
+                clearChatGPTLoginMode(codex);
                 commitManagedProviderState(codex, nextId, nextProvider);
             } else {
                 clearAppliedProviderState(codex);
+                clearChatGPTLoginMode(codex);
                 codex.addProperty("current", "");
             }
             writeConfig(config);
         });
+        if (CHATGPT_CHAT_PROVIDER_ID.equals(previousId) && !useChatGPTChat) {
+            chatGPTProxyManager.stop();
+        }
         LOG.info("[CodexProviderManager] Switched to provider: " + (nextId.isEmpty() ? "none" : nextId));
     }
 
@@ -531,8 +562,15 @@ public class CodexProviderManager {
         }
         JsonObject codex = config.getAsJsonObject("codex");
         String currentId = getCurrentId(codex);
-        if (currentId.isEmpty() || CODEX_CLI_LOGIN_PROVIDER_ID.equals(currentId)
-                || !codex.has("providers") || !codex.get("providers").isJsonObject()
+        if (currentId.isEmpty() || CODEX_CLI_LOGIN_PROVIDER_ID.equals(currentId)) {
+            return false;
+        }
+
+        if (CHATGPT_CHAT_PROVIDER_ID.equals(currentId)) {
+            return isChatGPTLoginReady(config, codex, migrateState);
+        }
+
+        if (!codex.has("providers") || !codex.get("providers").isJsonObject()
                 || !codex.getAsJsonObject("providers").has(currentId)) {
             return false;
         }
@@ -551,6 +589,89 @@ public class CodexProviderManager {
         return applied;
     }
 
+    private boolean isChatGPTLoginReady(
+            JsonObject config,
+            JsonObject codex,
+            boolean migrateState) throws IOException {
+        if (!isChatGPTLoginMode(codex)) {
+            if (!migrateState) {
+                return false;
+            }
+            migrateLegacyChatGPTChatProvider();
+            config = configReader.apply(null);
+            if (!config.has("codex") || !config.get("codex").isJsonObject()) {
+                return false;
+            }
+            codex = config.getAsJsonObject("codex");
+        }
+
+        return isCodexCliLoginAuthorized(config)
+                && codexSettingsManager.isCodexCliLoginAvailable();
+    }
+
+    private JsonObject createProviderForTransition(
+            String id,
+            JsonObject providers,
+            JsonObject codex,
+            boolean nextProvider) throws IOException {
+        if (id == null || id.isEmpty() || CODEX_CLI_LOGIN_PROVIDER_ID.equals(id)) {
+            return null;
+        }
+        if (CHATGPT_CHAT_PROVIDER_ID.equals(id)) {
+            return nextProvider || isChatGPTLoginMode(codex)
+                    ? null
+                    : createLegacyChatGPTProviderForTransition();
+        }
+        if (!providers.has(id)) {
+            return null;
+        }
+        return providerWithId(providers.getAsJsonObject(id), id);
+    }
+
+    private JsonObject createLegacyChatGPTProviderForTransition() {
+        JsonObject provider = createChatGPTChatProviderObject(false);
+        provider.addProperty("configToml",
+                "model = \"chatgpt-fake-model\"\n"
+                        + "model_provider = \"chatgpt-chat\"\n\n"
+                        + "[model_providers.chatgpt-chat]\n"
+                        + "base_url = \"http://127.0.0.1:1/v1\"\n"
+                        + "wire_api = \"responses\"\n"
+                        + "requires_openai_auth = false\n");
+        return provider;
+    }
+
+    /** Migrate the first POC's fake provider state to native ChatGPT login. */
+    public void migrateLegacyChatGPTChatProvider() throws IOException {
+        synchronized (PROVIDER_STATE_LOCK) {
+            JsonObject config = configReader.apply(null);
+            if (!config.has("codex") || !config.get("codex").isJsonObject()) {
+                return;
+            }
+            JsonObject codex = config.getAsJsonObject("codex");
+            if (!CHATGPT_CHAT_PROVIDER_ID.equals(getCurrentId(codex))
+                    || isChatGPTLoginMode(codex)) {
+                return;
+            }
+
+            JsonObject providers = codex.has("providers") && codex.get("providers").isJsonObject()
+                    ? codex.getAsJsonObject("providers")
+                    : new JsonObject();
+            JsonObject legacyProvider = createProviderForTransition(
+                    CHATGPT_CHAT_PROVIDER_ID, providers, codex, false);
+            codexSettingsManager.transitionProvider(legacyProvider, null, true, () -> {
+                clearAppliedProviderState(codex);
+                codex.addProperty(CHATGPT_CHAT_MODE_KEY, CHATGPT_CHAT_LOGIN_MODE);
+                codex.addProperty("current", CHATGPT_CHAT_PROVIDER_ID);
+                writeConfig(config);
+            });
+            chatGPTProxyManager.stop();
+        }
+    }
+
+    private boolean isVirtualProviderId(String id) {
+        return CODEX_CLI_LOGIN_PROVIDER_ID.equals(id) || CHATGPT_CHAT_PROVIDER_ID.equals(id);
+    }
+
     private void commitManagedProviderState(JsonObject codex, String providerId, JsonObject provider) {
         codex.addProperty(APPLIED_PROVIDER_ID_KEY, providerId);
         codex.addProperty(APPLIED_PROVIDER_REVISION_KEY, providerRevision(provider));
@@ -560,6 +681,16 @@ public class CodexProviderManager {
     private void clearAppliedProviderState(JsonObject codex) {
         codex.remove(APPLIED_PROVIDER_ID_KEY);
         codex.remove(APPLIED_PROVIDER_REVISION_KEY);
+    }
+
+    private void clearChatGPTLoginMode(JsonObject codex) {
+        codex.remove(CHATGPT_CHAT_MODE_KEY);
+    }
+
+    private boolean isChatGPTLoginMode(JsonObject codex) {
+        return codex != null
+                && codex.has(CHATGPT_CHAT_MODE_KEY)
+                && CHATGPT_CHAT_LOGIN_MODE.equals(codex.get(CHATGPT_CHAT_MODE_KEY).getAsString());
     }
 
     private String getCurrentId(JsonObject codex) {
@@ -632,6 +763,23 @@ public class CodexProviderManager {
     }
 
     /**
+     * Create the ChatGPT Chat virtual provider shown by the UI. It is never
+     * persisted in {@code codex.providers}; selecting it uses native Codex
+     * ChatGPT authentication and leaves the user's provider TOML in place.
+     */
+    private JsonObject createChatGPTChatProviderObject(boolean isActive) {
+        JsonObject provider = new JsonObject();
+        provider.addProperty("id", CHATGPT_CHAT_PROVIDER_ID);
+        provider.addProperty("name", ClaudeCodeGuiBundle.message("provider.chatgptChat.name"));
+        provider.addProperty("isVirtualProvider", true);
+        provider.addProperty("isChatGPTChatProvider", true);
+        provider.addProperty("isChatGPTLoginProvider", true);
+        provider.addProperty("providerType", CHATGPT_CHAT_PROVIDER_TYPE);
+        provider.addProperty("isActive", isActive);
+        return provider;
+    }
+
+    /**
      * Dev builds briefly stored provider auth in the OS keychain and left
      * "authStoredInPasswordSafe" / "credentialUnavailable" markers in the config.
      * Keychain storage was removed before release; strip those stale markers so
@@ -656,6 +804,19 @@ public class CodexProviderManager {
             if (!codex.has("current")) { return false; }
             return CODEX_CLI_LOGIN_PROVIDER_ID.equals(codex.get("current").getAsString())
                     && isCodexCliLoginAuthorized(config);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /** Check whether ChatGPT Chat is the current virtual Codex provider. */
+    public boolean isChatGPTChatProviderActive() {
+        try {
+            JsonObject config = configReader.apply(null);
+            if (!config.has("codex") || !config.get("codex").isJsonObject()) {
+                return false;
+            }
+            return CHATGPT_CHAT_PROVIDER_ID.equals(getCurrentId(config.getAsJsonObject("codex")));
         } catch (Exception e) {
             return false;
         }

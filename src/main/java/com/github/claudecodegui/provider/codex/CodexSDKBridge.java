@@ -444,7 +444,19 @@ public class CodexSDKBridge extends BaseSDKBridge {
 
                 // API configuration — skip for CLI Login mode (uses native OAuth from ~/.codex/auth.json)
                 boolean isCodexCliLogin = isCodexCliLoginActive();
-                if (!isCodexCliLogin) {
+                JsonObject activeProvider = new CodemossSettingsService().getActiveCodexProvider();
+                boolean isChatGPTWeb = activeProvider != null && activeProvider.has("id")
+                        && "__chatgpt_chat__".equals(activeProvider.get("id").getAsString());
+                if (isChatGPTWeb) {
+                    JsonObject web = com.github.claudecodegui.provider.codex.chatgpt.ChatGPTWebRuntime.prepareRequest();
+                    stdinInput.addProperty("chatGPTWeb", true);
+                    stdinInput.addProperty("model", web.get("id").getAsString());
+                    stdinInput.addProperty("reasoningEffort", web.get("effort").getAsString());
+                    stdinInput.addProperty("serviceTier", "");
+                    stdinInput.addProperty("baseUrl", web.get("baseUrl").getAsString());
+                    stdinInput.addProperty("apiKey", web.get("token").getAsString());
+                    LOG.info("[ChatGPT Web] Browser-only model route: " + web.get("id").getAsString());
+                } else if (!isCodexCliLogin) {
                     stdinInput.addProperty("baseUrl", baseUrl != null ? baseUrl : "");
                     stdinInput.addProperty("apiKey", apiKey != null ? apiKey : "");
                 } else {
@@ -540,6 +552,13 @@ public class CodexSDKBridge extends BaseSDKBridge {
 
                 // Configure Codex-specific env vars from ~/.codex/config.toml
                 envConfigurator.configureCodexEnv(env);
+
+                // Prefer the selected ChatGPT login over any inherited API-key
+                // environment variables, which would switch billing/auth modes.
+                if (isCodexCliLogin || isChatGPTWeb) {
+                    env.remove("OPENAI_API_KEY");
+                    env.remove("CODEX_API_KEY");
+                }
 
                 // Inject custom "message" env vars from active provider
                 injectCustomEnvVars(env, "message");

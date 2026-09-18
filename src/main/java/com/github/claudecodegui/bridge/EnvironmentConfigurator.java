@@ -53,6 +53,16 @@ public class EnvironmentConfigurator {
     }
 
     /**
+     * 为不需要读取 Codemoss 设置的辅助 Node 进程创建轻量环境配置器。
+     *
+     * <p>这个工厂用于启动 ChatGPT fake proxy，避免在设置服务自身初始化期间
+     * 再次构造 {@link CodemossSettingsService} 形成循环依赖。</p>
+     */
+    public static EnvironmentConfigurator withoutSettingsService() {
+        return new EnvironmentConfigurator(null);
+    }
+
+    /**
      * Updates the process environment variables, ensuring PATH includes the Node.js directory.
      * Supports both Windows (Path) and Unix (PATH) naming conventions.
      * The configured Node.js directory is prepended to PATH with highest priority.
@@ -315,6 +325,10 @@ public class EnvironmentConfigurator {
     }
 
     long getPermissionSafetyNetMs() {
+        if (settingsService == null) {
+            return (CodemossSettingsService.DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS
+                    + CodemossSettingsService.PERMISSION_SAFETY_NET_BUFFER_SECONDS) * 1000L;
+        }
         try {
             long timeoutSeconds = settingsService.getPermissionDialogTimeoutSeconds();
             return (timeoutSeconds + CodemossSettingsService.PERMISSION_SAFETY_NET_BUFFER_SECONDS) * 1000L;

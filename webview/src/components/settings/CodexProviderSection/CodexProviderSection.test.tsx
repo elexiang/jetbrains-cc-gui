@@ -15,6 +15,8 @@ const translations: Record<string, string> = {
   'settings.codexProvider.emptyProvider': 'No Codex providers configured',
   'settings.codexProvider.dialog.cliLoginProviderName': '使用本地配置信息',
   'settings.codexProvider.dialog.cliLoginProviderDescription': '让插件读取你已有的 ~/.codex/config.toml 和 auth.json 来发起 Codex 请求。\n\n• 适合喜欢手动管理配置的高级用户。\n• 适合使用第三方 cc-switch 管理的用户。',
+  'settings.codexProvider.dialog.chatGPTProviderName': 'ChatGPT Chat',
+  'settings.codexProvider.dialog.chatGPTProviderDescription': 'Use your existing ChatGPT login and Codex subscription quota',
   'settings.codexProvider.dialog.cliLoginAuthorizeTitle': 'Authorize Local Codex Config Access',
   'settings.codexProvider.dialog.cliLoginAuthorizeMessage': 'Read local Codex config files.',
   'settings.codexProvider.dialog.cliLoginAuthorizeDetail': 'Do not overwrite config.toml or auth.json.',
@@ -165,6 +167,35 @@ describe('CodexProviderSection', () => {
 
     expect(screen.queryByText('Logged in as: Nicole Fox')).toBeNull();
     expect(screen.getByRole('button', { name: 'Revoke Authorization' })).toBeTruthy();
+  });
+
+  it('renders the ChatGPT Chat virtual provider and switches to it', () => {
+    render(
+      <CodexProviderSection
+        codexProviders={[
+          {
+            id: SPECIAL_PROVIDER_IDS.CHATGPT_CHAT,
+            name: 'ChatGPT Chat',
+            isVirtualProvider: true,
+            isChatGPTChatProvider: true,
+            isActive: false,
+          },
+        ]}
+        codexLoading={false}
+        onAddCodexProvider={onAddCodexProvider}
+        onEditCodexProvider={onEditCodexProvider}
+        onDeleteCodexProvider={onDeleteCodexProvider}
+        onSwitchCodexProvider={onSwitchCodexProvider}
+        onRevokeCodexLocalConfigAuthorization={onRevokeCodexLocalConfigAuthorization}
+        addToast={addToast}
+      />
+    );
+
+    expect(screen.getByTestId('chatgpt-chat-provider-card')).toBeTruthy();
+    expect(screen.getByText(/Codex subscription quota/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Enable' }));
+
+    expect(onSwitchCodexProvider).toHaveBeenCalledWith(SPECIAL_PROVIDER_IDS.CHATGPT_CHAT);
   });
 
   it('revokes local authorization instead of switching directly when CLI login is active', () => {

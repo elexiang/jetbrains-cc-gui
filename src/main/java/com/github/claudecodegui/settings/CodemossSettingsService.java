@@ -2588,6 +2588,11 @@ public class CodemossSettingsService {
                 ? codex.get("current").getAsString().trim()
                 : "";
 
+        if (CodexProviderManager.CHATGPT_CHAT_PROVIDER_ID.equals(currentId)) {
+            // 网页账号由独立运行时验证，不能再退回 Codex OAuth。
+            return CODEX_RUNTIME_ACCESS_MANAGED;
+        }
+
         if (CodexProviderManager.CODEX_CLI_LOGIN_PROVIDER_ID.equals(currentId)) {
             return isCodexLocalConfigAuthorized()
                     ? CODEX_RUNTIME_ACCESS_CLI_LOGIN
