@@ -43,7 +43,14 @@ export const AppChatArea = (props: AppChatAreaProps) => {
           scroll position, and draft attachments survive history ↔ chat. */}
       <div
         style={currentView === 'chat'
-          ? { display: 'flex', flex: 1, minHeight: 0, flexDirection: 'column', overflow: 'hidden' }
+          ? {
+              display: 'flex',
+              flex: 1,
+              minHeight: 0,
+              flexDirection: 'column',
+              overflow: 'hidden',
+              background: 'var(--bg-chat)',
+            }
           : { display: 'none' }}
       >
         <ChatScreen {...chatScreenProps} />
