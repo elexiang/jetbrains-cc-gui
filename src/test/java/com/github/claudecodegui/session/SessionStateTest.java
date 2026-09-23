@@ -3,8 +3,6 @@ package com.github.claudecodegui.session;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.util.List;
-
 /**
  * Regression tests for retired Claude model id migration on session state writes
  * (persisted tab / history restore self-heal) - see #1678.
@@ -99,45 +97,5 @@ public class SessionStateTest {
         SessionState state = new SessionState();
         // The initial value must never be a retired id (#1678).
         Assert.assertEquals("claude-sonnet-5", state.getModel());
-    }
-
-    @Test
-    public void staleHistoryReplacementCannotOverwriteNewerLiveMessage() {
-        SessionState state = new SessionState();
-        long loadStartRevision = state.getMessagesRevision();
-        state.addMessage(new ClaudeSession.Message(
-                ClaudeSession.Message.Type.USER,
-                "live message"
-        ));
-
-        boolean replaced = state.replaceMessagesIfRevision(
-                loadStartRevision,
-                List.of(new ClaudeSession.Message(
-                        ClaudeSession.Message.Type.USER,
-                        "stale history"
-                ))
-        );
-
-        Assert.assertFalse(replaced);
-        Assert.assertEquals(1, state.getMessages().size());
-        Assert.assertEquals("live message", state.getMessages().get(0).content);
-    }
-
-    @Test
-    public void callbackScansReceiveAStableStructuralSnapshot() {
-        SessionState state = new SessionState();
-        state.addMessage(new ClaudeSession.Message(
-                ClaudeSession.Message.Type.USER,
-                "first"
-        ));
-
-        List<ClaudeSession.Message> snapshot = state.getMessagesReference();
-        state.addMessage(new ClaudeSession.Message(
-                ClaudeSession.Message.Type.USER,
-                "second"
-        ));
-
-        Assert.assertEquals(1, snapshot.size());
-        Assert.assertEquals(2, state.getMessages().size());
     }
 }

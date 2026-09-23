@@ -130,6 +130,8 @@ export interface ChatScreenProps {
   // Message queue
   messageQueue: MessageQueueValue;
   onRemoveFromQueue: (id: string) => void;
+  /** Drag-sort callback; orderedIds[0] is the next message to execute */
+  onReorderQueue?: (orderedIds: string[]) => void;
 }
 
 /**
@@ -166,7 +168,7 @@ export const ChatScreen = ({
   onCodexContextWindowChange, onCodexContextWindowRefresh, onDshPresetChange, onToggleThinking,
   onStreamingEnabledChange,
   onAutoOpenFileEnabledChange, onLongContextChange,
-  messageQueue, onRemoveFromQueue,
+  messageQueue, onRemoveFromQueue, onReorderQueue,
 }: ChatScreenProps) => {
   const { t } = useTranslation();
   const { messages, status, loading, isThinking, streamingActive, loadingStartTime, subagentHistories } = useMessages();
@@ -431,6 +433,7 @@ export const ChatScreen = ({
           addToast={addToast}
           messageQueue={messageQueue}
           onRemoveFromQueue={onRemoveFromQueue}
+          onReorderQueue={onReorderQueue}
           autoOpenFileEnabled={autoOpenFileEnabled}
           onAutoOpenFileEnabledChange={onAutoOpenFileEnabledChange}
           longContextEnabled={longContextEnabled}

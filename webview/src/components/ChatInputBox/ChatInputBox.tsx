@@ -86,6 +86,7 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
       addToast,
       messageQueue,
       onRemoveFromQueue,
+      onReorderQueue,
       autoOpenFileEnabled,
       onAutoOpenFileEnabledChange,
       longContextEnabled = true,
@@ -116,9 +117,6 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
       handleInput,
       handleKeyDown,
       handleKeyUp,
-      completionSelectedRef,
-      isComposingRef,
-      anyCompletionOpen,
       handleSubmit,
       handleCompositionStart,
       handleCompositionEnd,
@@ -142,7 +140,6 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
       promptCompletion,
       dollarCommandCompletion,
     } = useChatInputController({
-      isLoading,
       selectedModel,
       currentProvider,
       codexContextWindowSaving,
@@ -172,9 +169,21 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
       <div
         className={`chat-input-box ${isResizingInputBox ? 'is-resizing' : ''}`}
         onClick={focusInput}
+        role="button"
+        tabIndex={0}
+        aria-label={t('chat.inputPlaceholder')}
+        onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) return;
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            focusInput();
+          }
+        }}
         ref={containerRef}
         style={containerStyle}
         onMouseOver={handleMouseOver}
+        onFocus={(e) => handleMouseOver(e as unknown as React.MouseEvent)}
+        onBlur={handleMouseLeave}
         onMouseLeave={handleMouseLeave}
       >
         <ResizeHandles getHandleProps={getHandleProps} nudge={nudge} />
@@ -205,6 +214,7 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
           onToggleStatusPanel={onToggleStatusPanel}
           messageQueue={messageQueue}
           onRemoveFromQueue={onRemoveFromQueue}
+          onReorderQueue={onReorderQueue}
           showOpenSourceBanner={showOpenSourceBanner}
           onDismissOpenSourceBanner={handleDismissOpenSourceBanner}
           autoOpenFileEnabled={autoOpenFileEnabled}
@@ -229,11 +239,6 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
           handleInput={handleInput}
           handleKeyDown={handleKeyDown}
           handleKeyUp={handleKeyUp}
-          completionSelectedRef={completionSelectedRef}
-          anyCompletionOpen={anyCompletionOpen}
-          isLoading={isLoading}
-          isComposingRef={isComposingRef}
-          onSubmit={handleSubmit}
           handleCompositionStart={handleCompositionStart}
           handleCompositionEnd={handleCompositionEnd}
           handlePaste={handlePaste}
