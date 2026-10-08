@@ -7,7 +7,7 @@
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
-  background: var(--context-bar-bg);
+  background: var(--input-bg);
   min-height: 32px;
 }
 

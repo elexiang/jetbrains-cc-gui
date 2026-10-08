@@ -7,7 +7,7 @@
   justify-content: space-between;
   padding: 4px 4px;
   border-top: none;
-  background: rgba(0, 0, 0, 0.1);
+  background: var(--input-bg);
   font-family: inherit;
   /* Enable container queries for responsive button behavior */
   container-type: inline-size;
@@ -88,4 +88,3 @@
 .agent-tag-close .codicon {
   font-size: 10px;
 }
-

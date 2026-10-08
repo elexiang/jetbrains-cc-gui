@@ -769,6 +769,46 @@ public class CodexSettingsManager {
     }
 
     /**
+     * Apply the ChatGPT Chat POC's local Responses provider configuration.
+     *
+     * <p>This is intentionally built on the same transition path as ordinary
+     * providers so existing MCP/skill configuration is preserved and writes
+     * remain atomic. No API key or ChatGPT credential is written.</p>
+     *
+     * @param proxyBaseUrl loopback proxy URL, including the {@code /v1} path
+     * @param modelId model identifier accepted by the fake provider
+     */
+    public void applyChatGPTChatProviderToSettings(String proxyBaseUrl, String modelId) throws IOException {
+        JsonObject provider = new JsonObject();
+        provider.addProperty("id", "__chatgpt_chat__");
+        provider.addProperty("name", "ChatGPT Chat");
+        provider.addProperty("configToml", buildChatGPTChatConfigToml(proxyBaseUrl, modelId));
+        transitionProvider(null, provider, false, () -> { });
+    }
+
+    /**
+     * Build the provider-owned TOML fragment used by ChatGPT Chat.
+     * Provider-owned values are kept separate from global MCP/skill settings.
+     */
+    public String buildChatGPTChatConfigToml(String proxyBaseUrl, String modelId) {
+        String normalizedBaseUrl = requireNonBlank(proxyBaseUrl, "proxyBaseUrl");
+        String normalizedModelId = requireNonBlank(modelId, "modelId");
+        return "model = \"" + escapeTomlString(normalizedModelId) + "\"\n"
+                + "model_provider = \"chatgpt-chat\"\n\n"
+                + "[model_providers.chatgpt-chat]\n"
+                + "name = \"ChatGPT Chat\"\n"
+                + "base_url = \"" + escapeTomlString(normalizedBaseUrl) + "\"\n"
+                + "wire_api = \"responses\"\n";
+    }
+
+    private String requireNonBlank(String value, String fieldName) {
+        if (value == null || value.trim().isEmpty()) {
+            throw new IllegalArgumentException(fieldName + " must not be blank");
+        }
+        return value.trim();
+    }
+
+    /**
      * Verifies legacy managed-provider state before granting config management access.
      */
     public boolean isProviderApplied(JsonObject provider) throws IOException {

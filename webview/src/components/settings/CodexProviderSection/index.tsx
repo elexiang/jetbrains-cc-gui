@@ -7,6 +7,7 @@ import { useDragSort } from '../hooks/useDragSort';
 import ImportConfirmDialog from '../ProviderList/ImportConfirmDialog';
 import CodexProviderCard from './CodexProviderCard';
 import CliLoginCard from './CliLoginCard';
+import ChatGPTChatCard from './ChatGPTChatCard';
 import CodexProviderDialogs from './CodexProviderDialogs';
 import CodexProviderListHeader from './CodexProviderListHeader';
 import sharedStyles from '../ProviderList/style.module.less';
@@ -123,9 +124,10 @@ const CodexProviderSection = ({
     sendToJava('sort_codex_providers', { orderedIds });
   }, []);
 
-  // Filter out CLI Login provider from drag-sort list
+  // Virtual providers stay pinned and cannot be edited or drag-sorted.
   const regularProviders = useMemo(
-    () => codexProviders.filter((p) => p.id !== SPECIAL_PROVIDER_IDS.CODEX_CLI_LOGIN),
+    () => codexProviders.filter((p) => p.id !== SPECIAL_PROVIDER_IDS.CODEX_CLI_LOGIN
+      && p.id !== SPECIAL_PROVIDER_IDS.CHATGPT_CHAT),
     [codexProviders]
   );
 
@@ -149,6 +151,10 @@ const CodexProviderSection = ({
     [codexProviders]
   );
   const isCliLoginActive = cliLoginProvider?.isActive === true;
+  const chatGPTChatProvider = useMemo(
+    () => codexProviders.find((p) => p.id === SPECIAL_PROVIDER_IDS.CHATGPT_CHAT),
+    [codexProviders]
+  );
 
   return (
     <div className={styles.configSection}>
@@ -227,6 +233,13 @@ const CodexProviderSection = ({
               />
             )}
 
+            {chatGPTChatProvider && (
+              <ChatGPTChatCard
+                provider={chatGPTChatProvider}
+                onSwitchCodexProvider={onSwitchCodexProvider}
+              />
+            )}
+
             {/* Regular providers (drag-sortable) */}
             {localProviders.length > 0 ? (
               localProviders.map((provider) => (
@@ -246,7 +259,7 @@ const CodexProviderSection = ({
                   onDeleteCodexProvider={onDeleteCodexProvider}
                 />
               ))
-            ) : !cliLoginProvider ? (
+            ) : !cliLoginProvider && !chatGPTChatProvider ? (
               <div className={sharedStyles.emptyState}>
                 <span className="codicon codicon-info" />
                 <p>{t('settings.codexProvider.emptyProvider')}</p>
