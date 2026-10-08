@@ -235,7 +235,7 @@ public class GrokMessageHandler implements MessageCallback {
                 return;
             }
 
-            List<Message> messages = state.getMessagesSnapshot();
+            List<Message> messages = state.getMessagesReference();
             for (int i = messages.size() - 1; i >= 0; i--) {
                 Message msg = messages.get(i);
                 if (msg.type != Message.Type.USER) {

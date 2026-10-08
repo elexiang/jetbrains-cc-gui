@@ -408,7 +408,7 @@ public class CodexMessageHandler implements MessageCallback {
      * @since 1.0.0
      */
     private boolean attachUsageToLastAssistant(com.google.gson.JsonObject usage, com.google.gson.JsonObject turnUsage) {
-        java.util.List<Message> messages = state.getMessagesSnapshot();
+        java.util.List<Message> messages = state.getMessagesReference();
         for (int i = messages.size() - 1; i >= 0; i--) {
             Message msg = messages.get(i);
             if (msg.type == Message.Type.ASSISTANT && msg.raw != null) {

@@ -531,7 +531,7 @@ for (const fontSizeLevel of [3, 6]) {
     await page.mouse.click(quotaBox!.x + quotaBox!.width / 2, quotaBox!.y + quotaBox!.height / 2);
     await expect(quotaPanel).toBeFocused();
     await expect(providerButton).toHaveAttribute('aria-expanded', 'true');
-    await expect(page.locator('.button-area').first()).toHaveAttribute('data-provider', 'claude');
+    await expect(page.locator('.button-area').first()).toHaveAttribute('data-provider', 'codex');
     await expectInsideViewport(page, quotaPanel, 'interactive quota panel');
 
     await page.keyboard.press('End');

@@ -27,9 +27,11 @@ import java.util.Map;
 import java.util.Set;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Codex SDK bridge.
@@ -55,14 +57,23 @@ public class CodexSDKBridge extends BaseSDKBridge {
     private static final String ENV_CODEX_CI = "CODEX_CI";
     private static final String ENV_CODEX_SANDBOX_NETWORK_DISABLED = "CODEX_SANDBOX_NETWORK_DISABLED";
     private static final long MCP_TOOLS_TIMEOUT_MS = 65_000;
-    /** Abort a stuck Codex request while allowing long tool executions. */
+    /**
+     * Abort a stuck Codex request while allowing long tool executions.
+     * Only a silent stall counts as a hang: there is deliberately no total-duration cap, because a
+     * request that keeps streaming output (long refactors, full test suites, long agent chains) may
+     * legitimately run for many hours, and killing it would truncate real work.
+     */
     static final long CODEX_NO_OUTPUT_TIMEOUT_MS = 10 * 60 * 1000L;
-    static final long CODEX_TOTAL_TIMEOUT_MS = 2 * 60 * 60 * 1000L;
     private static final int MAX_ENV_VAR_VALUE_LENGTH = 16 * 1024;
     private static final String IMAGE_STORAGE_DIR_NAME = "codex-images";
     private final CodexHistoryReader historyReader;
     private final Path imageStorageDir;
     private final CodemossSettingsService settingsService = new CodemossSettingsService();
+    /**
+     * Per-channel send mutex. Keyed by channelId (one per GUI session, reused
+     * across turns); entries are bounded by the number of open sessions.
+     */
+    private final Map<String, ReentrantLock> channelSendLocks = new ConcurrentHashMap<>();
 
     private static final Set<String> PROTECTED_ENV_KEYS = new HashSet<>();
     static {
@@ -559,17 +570,34 @@ public class CodexSDKBridge extends BaseSDKBridge {
                 AtomicLong lastOutputAt = new AtomicLong(System.currentTimeMillis());
                 AtomicReference<String> timeoutReason = new AtomicReference<>(null);
                 try {
-                    process = pb.start();
-                    processManager.registerProcess(channelId, process);
+                    // Serialize turns per channel. Codex holds a persistent
+                    // thread-writer lock (OS file lock under ~/.codex/thread-writer-locks)
+                    // for the whole turn, so a second `codex exec resume` on the same
+                    // thread while the previous writer is still alive fails with
+                    // "thread-store conflict: already has an active writer". Rapid
+                    // Stop/Send cycling used to overlap writers because interrupt only
+                    // kills the process snapshot captured when it started. Stop any
+                    // still-alive previous turn and wait for its death before spawning.
+                    ReentrantLock channelLock = channelSendLocks.computeIfAbsent(channelId, k -> new ReentrantLock());
+                    channelLock.lock();
+                    try {
+                        Process previous = processManager.getProcess(channelId);
+                        if (previous != null && previous.isAlive()) {
+                            LOG.warn("[Codex] Previous turn process still active for channel " + channelId
+                                    + "; stopping it before starting the new turn");
+                            processManager.interruptChannel(channelId);
+                        }
+                        process = pb.start();
+                        processManager.registerProcess(channelId, process);
+                    } finally {
+                        channelLock.unlock();
+                    }
 
                     final Process watchedProcess = process;
-                    final long startedAt = System.currentTimeMillis();
                     watchdog = new Thread(() -> {
                         while (!finished.get() && watchedProcess.isAlive()) {
                             long now = System.currentTimeMillis();
-                            if (now - startedAt >= CODEX_TOTAL_TIMEOUT_MS) {
-                                timeoutReason.compareAndSet(null, "Codex request exceeded the 2-hour total timeout");
-                            } else if (now - lastOutputAt.get() >= CODEX_NO_OUTPUT_TIMEOUT_MS) {
+                            if (now - lastOutputAt.get() >= CODEX_NO_OUTPUT_TIMEOUT_MS) {
                                 timeoutReason.compareAndSet(null, "Codex produced no output for 10 minutes");
                             }
                             if (timeoutReason.get() != null) {
