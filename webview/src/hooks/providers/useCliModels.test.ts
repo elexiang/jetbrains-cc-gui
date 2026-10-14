@@ -31,7 +31,7 @@ describe('useCliModels', () => {
 
   it('fetches the codex catalog when the codex provider is active', () => {
     renderHook(() => useCliModels('codex'));
-    expect(sendBridgeEventMock).toHaveBeenCalledWith('get_cli_models', 'codex');
+    expect(sendBridgeEventMock).toHaveBeenCalledWith('codex_native_list_models', expect.stringContaining('"requestId"'));
   });
 
   it('fetches the grok catalog when the grok provider is active', () => {
@@ -39,9 +39,42 @@ describe('useCliModels', () => {
     expect(sendBridgeEventMock).toHaveBeenCalledWith('get_cli_models', 'grok');
   });
 
-  it('does not fetch for claude', () => {
+  it('fetches the settings.json model picker for claude', () => {
     renderHook(() => useCliModels('claude'));
-    expect(sendBridgeEventMock).not.toHaveBeenCalled();
+    expect(sendBridgeEventMock).toHaveBeenCalledWith('get_cli_models', 'claude');
+  });
+
+  it('accepts an empty Claude catalog without repeatedly fetching it', () => {
+    const { result } = renderHook(() => useCliModels('claude'));
+    emitCliModels({ success: true, provider: 'claude', models: [], replaceBuiltInOptions: true });
+    expect(result.current.cliModelsReplaceBuiltIns).toBe(true);
+    expect(result.current.cliModels).toEqual([]);
+    expect(result.current.cliModelsLoading).toBe(false);
+    expect(sendBridgeEventMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('invalidates Claude routes and replacement mode when the active provider changes', () => {
+    const { result } = renderHook(() => useCliModels('claude'));
+    emitCliModels({ success: true, provider: 'claude', models: [{ id: 'ccs-claude-a--glm-5.3', label: 'GLM（A）' }], replaceBuiltInOptions: true });
+    expect(result.current.cliModelsReplaceBuiltIns).toBe(true);
+    act(() => window.updateActiveProvider?.('{}'));
+    expect(result.current.cliModels).toEqual([]);
+    expect(result.current.cliModelsReplaceBuiltIns).toBe(false);
+    expect(sendBridgeEventMock).toHaveBeenCalledTimes(2);
+    emitCliModels({ success: true, provider: 'claude', models: [] });
+    expect(result.current.cliModelsReplaceBuiltIns).toBe(false);
+  });
+
+  it('reloads a local Claude picker when returning from cc-switch to the IDE', () => {
+    const { result } = renderHook(() => useCliModels('claude'));
+    emitCliModels({ success: true, provider: 'claude', models: [{ id: 'ccs-claude-a--glm', label: 'GLM（A）' }], replaceBuiltInOptions: true });
+    act(() => window.dispatchEvent(new Event('focus')));
+    expect(sendBridgeEventMock).toHaveBeenCalledTimes(2);
+    expect(result.current.cliModelsLoading).toBe(true);
+    emitCliModels({ success: true, provider: 'claude', models: [] });
+    expect(result.current.cliModelsLoaded).toBe(true);
+    expect(result.current.cliModelsReplaceBuiltIns).toBe(false);
+    expect(result.current.cliModels).toEqual([]);
   });
 
   it('falls back to the static CODEX_MODELS list before the catalog arrives', () => {
@@ -63,6 +96,24 @@ describe('useCliModels', () => {
     ]);
     expect(result.current.cliDefaultModel).toBe('kimi-k3');
     expect(result.current.cliModelsLoading).toBe(false);
+    expect(result.current.cliModelsError).toBeNull();
+  });
+
+  it('accepts the authorized native model/list projection', () => {
+    const { result } = renderHook(() => useCliModels('codex'));
+    act(() => {
+      window.dispatchEvent(new CustomEvent('codex-native-data', {
+        detail: {
+          requestType: 'codex_native_list_models',
+          requestId: JSON.parse(sendBridgeEventMock.mock.calls.at(-1)![1]).requestId,
+          data: [{ id: 'internal-catalog-id', model: 'native-model', displayName: 'Native model', description: 'native' },
+            { id: 'hidden', model: 'hidden-model', hidden: true }],
+        },
+      }));
+    });
+    expect(result.current.cliModels).toEqual([
+      { id: 'native-model', label: 'Native model', description: 'native' },
+    ]);
     expect(result.current.cliModelsError).toBeNull();
   });
 
@@ -94,7 +145,7 @@ describe('useCliModels', () => {
     act(() => {
       result.current.refreshCliModels('codex');
     });
-    expect(sendBridgeEventMock).toHaveBeenCalledWith('get_cli_models', 'codex');
+    expect(sendBridgeEventMock).toHaveBeenCalledWith('codex_native_list_models', expect.stringContaining('"requestId"'));
   });
 
   it('refetches the codex catalog when the active codex provider changes', () => {
@@ -115,7 +166,7 @@ describe('useCliModels', () => {
       window.updateActiveCodexProvider?.(JSON.stringify({ id: 'other-provider' }));
     });
     // Cache cleared; effect refetches because the current provider is codex.
-    expect(sendBridgeEventMock).toHaveBeenCalledWith('get_cli_models', 'codex');
+    expect(sendBridgeEventMock).toHaveBeenCalledWith('codex_native_list_models', expect.stringContaining('"requestId"'));
     rerender({ provider: 'codex' });
     expect(result.current.modelsByProvider.codex).toBeUndefined();
   });
