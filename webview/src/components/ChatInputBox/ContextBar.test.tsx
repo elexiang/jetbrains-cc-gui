@@ -14,7 +14,7 @@ vi.mock('../../hooks/useClaudePlanUsage', () => ({
 }));
 
 describe('ContextBar Codex controls', () => {
-  it('places both controls after usage and before the divider', () => {
+  it('keeps the 1M toggle after usage without a context management selector', () => {
     const onWindowChange = vi.fn();
     const onManagementChange = vi.fn();
     const { container, rerender } = render(
@@ -30,10 +30,9 @@ describe('ContextBar Codex controls', () => {
     const token = tools.querySelector('.context-token-indicator') as HTMLElement;
     const divider = tools.querySelector('.context-tool-divider') as HTMLElement;
     const toggle = screen.getByTestId('codex-context-window-toggle');
-    const management = screen.getByTestId('codex-context-management-trigger');
     expect(token.compareDocumentPosition(toggle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(toggle.compareDocumentPosition(management) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(management.compareDocumentPosition(divider) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(toggle.compareDocumentPosition(divider) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByTestId('codex-context-management-trigger')).toBeNull();
 
     fireEvent.click(toggle);
     expect(onWindowChange).toHaveBeenCalledWith('1m');

@@ -3,7 +3,6 @@ import { AgentChip } from './AgentChip';
 import { ContextTools } from './ContextTools';
 import { ContextToolsRight } from './ContextToolsRight';
 import { FileContextChip } from './FileContextChip';
-import { CodexContextManagementSelect } from './selectors/CodexContextManagementSelect';
 import { CodexContextWindowToggle } from './selectors/CodexContextWindowToggle';
 import type { CodexContextWindowPreset, CodexContextWindowValue, SelectedAgent } from './types';
 
@@ -64,9 +63,7 @@ export const ContextBar: React.FC<ContextBarProps> = memo(({
   codexContextWindowLoading = false,
   codexContextWindowSaving = false,
   onCodexContextWindowChange,
-  codexContextManagement = false,
   codexContextManagementSaving = false,
-  onCodexContextManagementChange,
 }) => {
   return (
     <div className="context-bar">
@@ -85,14 +82,6 @@ export const ContextBar: React.FC<ContextBarProps> = memo(({
             saving={codexContextWindowSaving}
             disabled={codexContextManagementSaving}
             onChange={onCodexContextWindowChange}
-          />
-        )}
-
-        {currentProvider === 'codex' && onCodexContextManagementChange && (
-          <CodexContextManagementSelect
-            enabled={codexContextManagement}
-            disabled={codexContextWindowLoading || codexContextWindowSaving || codexContextManagementSaving}
-            onChange={onCodexContextManagementChange}
           />
         )}
 

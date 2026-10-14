@@ -363,16 +363,7 @@ test('Codex keeps context controls in the top ContextBar', async ({ page }, test
   await expect(speedToggle).toHaveAttribute('role', 'checkbox');
   await expect(speedToggle).toHaveAttribute('aria-checked', 'false');
   await expect(contextToggle).toBeVisible();
-  await expect(managementTrigger).toBeVisible();
-  await expect(managementTrigger).toHaveText(/^(Old|旧|舊)$/);
-  await managementTrigger.click();
-  const managementDropdown = page.getByTestId('codex-context-management-dropdown');
-  await expect(managementDropdown).toBeVisible();
-  await expectInsideViewport(page, managementDropdown, 'Codex context management');
-  await managementDropdown.getByTestId('codex-context-management-option-new').click();
-  await expect.poll(() => page.evaluate(() => (window as unknown as { sentMessages?: string[] })
-    .sentMessages?.includes('set_codex_context_management:{"enabled":true}'))).toBe(true);
-  await expect(managementTrigger).toHaveText(/^(New|新)$/);
+  await expect(managementTrigger).toHaveCount(0);
 
   await openDirectSelector(page, modelTrigger, page.getByTestId('model-selector-dropdown'), 'Codex model');
   await openDirectSelector(page, reasoningTrigger, page.getByTestId('reasoning-selector-dropdown'), 'Codex reasoning');
