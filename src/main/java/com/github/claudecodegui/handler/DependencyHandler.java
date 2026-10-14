@@ -249,7 +249,9 @@ public class DependencyHandler extends BaseMessageHandler {
 
             CompletableFuture.runAsync(() -> {
                 try {
+                    this.sendInstallProgress(sdkId, "Uninstalling dependency...");
                     boolean success = this.dependencyManager.uninstallSdk(sdkId);
+                    this.sendInstallProgress(sdkId, success ? "Uninstall completed." : "Uninstall failed; some files could not be removed.");
 
                     JsonObject result = new JsonObject();
                     result.addProperty("success", success);
@@ -320,7 +322,7 @@ public class DependencyHandler extends BaseMessageHandler {
                         return;
                     }
 
-                    this.sendInstallProgress(sdkId, "Updating SDK with npm install...");
+                    this.sendInstallProgress(sdkId, "Installing selected dependency version with npm...");
                     InstallResult result = this.dependencyManager.installSdkSync(sdkId, requestedVersion, (logLine) -> {
                         this.sendInstallProgress(sdkId, logLine);
                     });

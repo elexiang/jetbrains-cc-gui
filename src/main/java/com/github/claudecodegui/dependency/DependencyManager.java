@@ -1,5 +1,7 @@
 package com.github.claudecodegui.dependency;
 
+import com.github.claudecodegui.cli.CodexCliMaintenance;
+import com.github.claudecodegui.cli.CliStatusDetector;
 import com.github.claudecodegui.bridge.EnvironmentConfigurator;
 import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.model.NodeDetectionResult;
@@ -216,28 +218,14 @@ public class DependencyManager {
             String npmPath = getNpmPath(nodePath);
 
             ProcessBuilder pb = new ProcessBuilder(buildNpmCommand(
-                    nodePath, npmPath, "view", sdk.getNpmPackage(), "version"));
+                    nodePath, npmPath, "view", sdk.getNpmPackage(), "dist-tags.latest"));
             configureProcessEnvironment(pb);
 
             Process process = pb.start();
-            StringBuilder output = new StringBuilder();
-
-            try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    output.append(line.trim());
-                }
-            }
-
-            boolean finished = process.waitFor(30, TimeUnit.SECONDS);
-            if (!finished) {
-                process.destroyForcibly();
-                return null;
-            }
+            String output = readProcessOutput(process, 30, null);
 
             if (process.exitValue() == 0) {
-                return output.toString().trim();
+                return normalizeRequestedVersion(output.trim());
             }
         } catch (Exception e) {
             LOG.warn("[DependencyManager] Failed to get latest version: " + e.getMessage());
@@ -266,27 +254,14 @@ public class DependencyManager {
             configureProcessEnvironment(pb);
 
             Process process = pb.start();
-            StringBuilder output = new StringBuilder();
-
-            try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    output.append(line);
-                }
-            }
-
-            boolean finished = process.waitFor(30, TimeUnit.SECONDS);
-            if (!finished) {
-                process.destroyForcibly();
-                return Collections.emptyList();
-            }
+            String output = readProcessOutput(process, 30, null);
 
             if (process.exitValue() != 0) {
                 return Collections.emptyList();
             }
 
-            return parseVersionList(output.toString());
+            List<String> versions = parseVersionList(output, sdk == SdkDefinition.CODEX_CLI);
+            return sdk == SdkDefinition.CODEX_CLI ? recentCodexVersions(versions) : versions;
         } catch (Exception e) {
             LOG.warn("[DependencyManager] Failed to get available versions: " + e.getMessage());
             return Collections.emptyList();
@@ -349,11 +324,105 @@ public class DependencyManager {
      * Installs an SDK at a requested version (synchronous).
      */
     public InstallResult installSdkSync(String sdkId, String requestedVersion, Consumer<String> logCallback) {
+        if (!"codex-cli".equals(sdkId)) {
+            return installSdkSyncImpl(sdkId, requestedVersion, logCallback);
+        }
+        boolean acquired = false;
+        Path staged = null;
+        Path backup = null;
+        Path target = null;
+        try {
+            CodexCliMaintenance.beginUpdate();
+            acquired = true;
+            target = getSdkDir(sdkId);
+            String suffix = java.util.UUID.randomUUID().toString();
+            staged = target.resolveSibling("codex-cli-installing-" + suffix);
+            backup = target.resolveSibling("codex-cli-backup-" + suffix);
+            InstallResult result = installSdkAt(sdkId, requestedVersion, logCallback, staged);
+            if (!result.isSuccess()) {
+                return result;
+            }
+            String requested = normalizeRequestedVersion(requestedVersion);
+            if (requested != null && !requested.equals(result.getInstalledVersion())) {
+                throw new IOException("Requested Codex " + requested + " but installed " + result.getInstalledVersion());
+            }
+            verifyCodexCli(staged, result.getInstalledVersion());
+            activateCodexInstallation(staged, target, backup);
+            updateManifest(sdkId, result.getInstalledVersion());
+            return result;
+        } catch (Exception error) {
+            return InstallResult.failure(sdkId, error.getMessage(), "");
+        } finally {
+            if (acquired) {
+                for (Path temporary : new Path[]{staged, backup}) {
+                    // A backup is only disposable after the target was activated or restored.
+                    if (temporary != null && (!temporary.equals(backup) || (target != null && Files.exists(target)))) {
+                        try { deleteDirectory(temporary); } catch (IOException error) {
+                            LOG.warn("[DependencyManager] Could not clean temporary CLI directory: " + temporary, error);
+                        }
+                    }
+                }
+                CliStatusDetector.invalidateCache();
+                CodexCliMaintenance.endUpdate();
+            }
+        }
+    }
+
+    static void activateCodexInstallation(Path staged, Path target, Path backup) throws IOException {
+        if (Files.exists(target)) {
+            Files.move(target, backup);
+        }
+        try {
+            Files.move(staged, target);
+        } catch (IOException error) {
+            if (Files.exists(backup)) {
+                Files.move(backup, target);
+            }
+            throw error;
+        }
+    }
+
+    /** Validate the selected package and native executable before replacing a working installation. */
+    private void verifyCodexCli(Path directory, String expectedVersion) throws Exception {
+        if (expectedVersion == null) {
+            throw new IOException("Codex package has no version");
+        }
+        String node = nodeDetector.findNodeExecutable();
+        Path launcher = directory.resolve("node_modules/@openai/codex/bin/codex.js");
+        List<String> command = new ArrayList<>(NodeDetector.buildNodeScriptCommand(node, launcher.toString()));
+        command.add("--version");
+        ProcessBuilder builder = new ProcessBuilder(command).redirectErrorStream(true);
+        configureProcessEnvironment(builder);
+        Process process = builder.start();
+        try {
+            if (!process.waitFor(30, TimeUnit.SECONDS)) {
+                throw new IOException("Codex CLI verification timed out");
+            }
+            String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
+            if (process.exitValue() != 0 || !output.matches("(?s).*codex(?:-cli)?\\s+" + Pattern.quote(expectedVersion) + "(?:\\s.*)?")) {
+                throw new IOException("Codex CLI verification failed: " + output);
+            }
+        } finally {
+            if (process.isAlive()) {
+                process.descendants().forEach(handle -> handle.destroyForcibly());
+                process.destroyForcibly();
+            }
+        }
+    }
+
+    private InstallResult installSdkSyncImpl(String sdkId, String requestedVersion, Consumer<String> logCallback) {
+        return installSdkAt(sdkId, requestedVersion, logCallback, null);
+    }
+
+    private InstallResult installSdkAt(String sdkId, String requestedVersion, Consumer<String> logCallback, Path installationDir) {
         SdkDefinition sdk = SdkDefinition.fromId(sdkId);
         if (sdk == null) {
             return InstallResult.failure(sdkId, "Unknown SDK: " + sdkId, "");
         }
 
+        if (requestedVersion != null && !requestedVersion.isBlank() && normalizeRequestedVersion(requestedVersion) == null) {
+            return InstallResult.failure(sdkId, "Invalid version: " + requestedVersion, "");
+        }
         StringBuilder logs = new StringBuilder();
         Consumer<String> log = (msg) -> {
             logs.append(msg).append("\n");
@@ -381,7 +450,7 @@ public class DependencyManager {
             log.accept("Using npm: " + npmPath);
 
             // 2. Create the SDK directory
-            Path sdkDir = getSdkDir(sdkId);
+            Path sdkDir = installationDir != null ? installationDir : getSdkDir(sdkId);
 
             // Path safety check: ensure sdkDir is within the expected dependencies directory to prevent path traversal attacks
             Path normalizedSdkDir = sdkDir.normalize().toAbsolutePath();
@@ -449,24 +518,7 @@ public class DependencyManager {
 
                 Process process = pb.start();
 
-                // Read output in real time and collect logs
-                StringBuilder installLogs = new StringBuilder();
-                try (BufferedReader reader = new BufferedReader(
-                        new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        log.accept(line);
-                        installLogs.append(line).append("\n");
-                    }
-                }
-
-                boolean finished = process.waitFor(3, TimeUnit.MINUTES);
-                if (!finished) {
-                    process.destroyForcibly();
-                    lastResult = InstallResult.failure(sdkId,
-                            "Installation timed out (3 minutes)", logs.toString());
-                    continue; // Retry
-                }
+                readProcessOutput(process, 180, log);
 
                 int exitCode = process.exitValue();
                 if (exitCode == 0) {
@@ -528,12 +580,14 @@ public class DependencyManager {
             }
 
             // 6. Create the installation marker file
-            String installedVersion = getInstalledVersion(sdkId);
+            String installedVersion = readPackageVersion(resolvePackagePath(sdkDir.resolve("node_modules"), sdk.getNpmPackage()));
             Path markerFile = sdkDir.resolve(INSTALLED_MARKER);
             Files.writeString(markerFile, installedVersion != null ? installedVersion : "unknown");
 
             // 7. Update the manifest
-            updateManifest(sdkId, installedVersion);
+            if (installationDir == null) {
+                updateManifest(sdkId, installedVersion);
+            }
 
             log.accept("Installation completed successfully!");
             log.accept("Installed version: " + installedVersion);
@@ -553,6 +607,25 @@ public class DependencyManager {
      * @return true if the uninstallation completed fully, false if some files failed to delete
      */
     public boolean uninstallSdk(String sdkId) {
+        if (SdkDefinition.fromId(sdkId) == null) {
+            return false;
+        }
+        boolean acquired = false;
+        try {
+            if ("codex-cli".equals(sdkId)) {
+                CodexCliMaintenance.beginUpdate();
+                acquired = true;
+            }
+            return uninstallSdkImpl(sdkId);
+        } finally {
+            if (acquired) {
+                CliStatusDetector.invalidateCache();
+                CodexCliMaintenance.endUpdate();
+            }
+        }
+    }
+
+    private boolean uninstallSdkImpl(String sdkId) {
         try {
             Path sdkDir = getSdkDir(sdkId);
             if (!Files.exists(sdkDir)) {
@@ -562,17 +635,15 @@ public class DependencyManager {
             // Recursively delete the directory and collect paths that failed to delete
             List<Path> failedPaths = deleteDirectory(sdkDir);
 
-            // Update the manifest
-            removeFromManifest(sdkId);
-
             if (failedPaths.isEmpty()) {
+                removeFromManifest(sdkId);
                 LOG.info("[DependencyManager] Uninstalled SDK completely: " + sdkId);
                 return true;
             } else {
                 // Some files failed to delete; log a warning but still return success (manifest is already updated)
                 LOG.warn("[DependencyManager] Uninstalled SDK with " + failedPaths.size() +
                                  " files failed to delete: " + sdkId);
-                return true; // Still return true because the SDK is functionally uninstalled
+                return false; // Report locked files rather than claim a complete uninstall.
             }
         } catch (Exception e) {
             LOG.error("[DependencyManager] Failed to uninstall SDK: " + e.getMessage(), e);
@@ -597,7 +668,11 @@ public class DependencyManager {
             status.addProperty("installed", installed);
             // Add the status field for frontend consumption
             status.addProperty("status", installed ? "installed" : "not_installed");
-            status.addProperty("runtimeKind", "sdk");
+            status.addProperty("runtimeKind", sdk == SdkDefinition.CODEX_CLI ? "cli" : "sdk");
+            status.addProperty("installPath", getSdkDir(sdk.getId()).toString());
+            if (sdk == SdkDefinition.CODEX_CLI) {
+                status.addProperty("transport", "app-server");
+            }
 
             if (installed) {
                 String version = getInstalledVersion(sdk.getId());
@@ -796,6 +871,44 @@ public class DependencyManager {
         envConfigurator.updateProcessEnvironment(pb, nodePath);
     }
 
+    /** Drain output concurrently so a hung npm process cannot bypass the timeout. */
+    static String readProcessOutput(Process process, long timeoutSeconds, Consumer<String> onLine) throws Exception {
+        StringBuilder output = new StringBuilder();
+        java.util.concurrent.atomic.AtomicReference<Exception> failure = new java.util.concurrent.atomic.AtomicReference<>();
+        Thread readerThread = new Thread(() -> {
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    output.append(line).append('\n');
+                    if (onLine != null) {
+                        onLine.accept(line);
+                    }
+                }
+            } catch (Exception error) { failure.set(error); }
+        }, "dependency-npm-output");
+        readerThread.setDaemon(true);
+        readerThread.start();
+        try {
+            if (!process.waitFor(timeoutSeconds, TimeUnit.SECONDS)) {
+                throw new IOException("npm timed out after " + timeoutSeconds + " seconds");
+            }
+            readerThread.join(3000);
+            if (readerThread.isAlive()) {
+                throw new IOException("npm output did not close");
+            }
+            if (failure.get() != null) {
+                throw failure.get();
+            }
+            return output.toString();
+        } finally {
+            if (process.isAlive()) {
+                process.descendants().forEach(handle -> handle.destroyForcibly());
+                process.destroyForcibly();
+                process.waitFor(5, TimeUnit.SECONDS);
+            }
+        }
+    }
+
     /**
      * Creates the package.json file.
      */
@@ -878,7 +991,8 @@ public class DependencyManager {
         }
 
         // Collect all paths that failed to delete instead of silently ignoring them
-        Files.walk(dir)
+        try (java.util.stream.Stream<Path> paths = Files.walk(dir)) {
+        paths
                 .sorted((a, b) -> b.compareTo(a)) // Reverse sort to delete children first
                 .forEach(path -> {
                     try {
@@ -888,6 +1002,7 @@ public class DependencyManager {
                         failedPaths.add(path);
                     }
                 });
+        }
 
         if (!failedPaths.isEmpty()) {
             LOG.warn("[DependencyManager] " + failedPaths.size() + " files/directories failed to delete");
@@ -910,19 +1025,52 @@ public class DependencyManager {
         v1 = v1.startsWith("v") ? v1.substring(1) : v1;
         v2 = v2.startsWith("v") ? v2.substring(1) : v2;
 
-        String[] parts1 = v1.split("\\.");
-        String[] parts2 = v2.split("\\.");
+        String[] split1 = v1.split("-", 2);
+        String[] split2 = v2.split("-", 2);
+        String[] parts1 = split1[0].split("\\.");
+        String[] parts2 = split2[0].split("\\.");
 
         int maxLen = Math.max(parts1.length, parts2.length);
         for (int i = 0; i < maxLen; i++) {
-            int num1 = i < parts1.length ? parseVersionPart(parts1[i]) : 0;
-            int num2 = i < parts2.length ? parseVersionPart(parts2[i]) : 0;
-
-            if (num1 != num2) {
-                return num1 - num2;
+            java.math.BigInteger num1 = i < parts1.length ? parseVersionPart(parts1[i]) : java.math.BigInteger.ZERO;
+            java.math.BigInteger num2 = i < parts2.length ? parseVersionPart(parts2[i]) : java.math.BigInteger.ZERO;
+            int comparison = num1.compareTo(num2);
+            if (comparison != 0) {
+                return comparison;
             }
         }
 
+        if (split1.length == 1 && split2.length == 1) {
+            return 0;
+        }
+        if (split1.length == 1) {
+            return 1;
+        }
+        if (split2.length == 1) {
+            return -1;
+        }
+        String[] ids1 = split1[1].split("\\.");
+        String[] ids2 = split2[1].split("\\.");
+        for (int i = 0; i < Math.max(ids1.length, ids2.length); i++) {
+            if (i >= ids1.length) {
+                return -1;
+            }
+            if (i >= ids2.length) {
+                return 1;
+            }
+            if (ids1[i].equals(ids2[i])) {
+                continue;
+            }
+            boolean numeric1 = ids1[i].matches("\\d+");
+            boolean numeric2 = ids2[i].matches("\\d+");
+            if (numeric1 && numeric2) {
+                return new java.math.BigInteger(ids1[i]).compareTo(new java.math.BigInteger(ids2[i]));
+            }
+            if (numeric1 != numeric2) {
+                return numeric1 ? -1 : 1;
+            }
+            return ids1[i].compareTo(ids2[i]);
+        }
         return 0;
     }
 
@@ -970,6 +1118,34 @@ public class DependencyManager {
     }
 
     static List<String> parseVersionList(String rawJson) {
+        return parseVersionList(rawJson, false);
+    }
+
+    /** Keep a short release history; the UI also retains the installed version and accepts exact manual versions. */
+    static List<String> recentCodexVersions(List<String> versions) {
+        List<String> sorted = new ArrayList<>(versions);
+        sorted.sort((left, right) -> compareVersions(right, left));
+        List<String> recent = new ArrayList<>();
+        int stableCount = 0;
+        int prereleaseCount = 0;
+        for (String version : sorted) {
+            if (version.contains("-")) {
+                if (prereleaseCount < 10) {
+                    recent.add(version);
+                    prereleaseCount++;
+                }
+            } else if (stableCount < 20) {
+                recent.add(version);
+                stableCount++;
+            }
+            if (stableCount == 20 && prereleaseCount == 10) {
+                break;
+            }
+        }
+        return recent;
+    }
+
+    static List<String> parseVersionList(String rawJson, boolean includePrerelease) {
         List<String> versions = new ArrayList<>();
 
         try {
@@ -998,7 +1174,8 @@ public class DependencyManager {
                 }
 
                 String version = normalizeRequestedVersion(item.getAsString());
-                if (version == null || version.contains("-")) {
+                if (version == null || (!includePrerelease && version.contains("-"))
+                        || version.matches(".*-(?:darwin|linux|win32)-(?:arm64|x64)$")) {
                     continue;
                 }
                 versions.add(version);
@@ -1014,13 +1191,13 @@ public class DependencyManager {
     /**
      * Parses a single segment of a version string.
      */
-    private static int parseVersionPart(String part) {
+    private static java.math.BigInteger parseVersionPart(String part) {
         // Strip non-numeric suffixes (e.g. -beta, -alpha)
         Pattern pattern = Pattern.compile("^(\\d+)");
         Matcher matcher = pattern.matcher(part);
         if (matcher.find()) {
-            return Integer.parseInt(matcher.group(1));
+            return new java.math.BigInteger(matcher.group(1));
         }
-        return 0;
+        return java.math.BigInteger.ZERO;
     }
 }

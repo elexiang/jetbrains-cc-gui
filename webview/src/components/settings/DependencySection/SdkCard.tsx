@@ -89,6 +89,7 @@ const SdkCard = ({
             <div className={styles.versionToolbar}>
               <SdkVersionField
                 selectedVersion={selectedVersion}
+                allowCustomVersion={sdk.id === 'codex-cli'}
                 versionOptions={versionOptions}
                 isVersionLoading={isVersionLoading}
                 isAnyOperationInProgress={isAnyOperationInProgress}
@@ -97,6 +98,7 @@ const SdkCard = ({
               />
               <SdkActions
                 installed={installed}
+                allowReinstall={sdk.id === 'codex-cli'}
                 targetVersion={targetVersion}
                 action={action}
                 isInstalling={isInstalling}
@@ -125,7 +127,7 @@ const SdkCard = ({
             </div>
             {versionInfo?.source === 'fallback' && (
               <div className={styles.versionHint}>
-                {t('settings.dependency.versionSourceFallback')}
+                {t(sdk.id === 'codex-cli' ? 'settings.dependency.cliVersionsUnavailable' : 'settings.dependency.versionSourceFallback')}
               </div>
             )}
             {installed && action === 'rollback' && (

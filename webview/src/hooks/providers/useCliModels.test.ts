@@ -171,6 +171,16 @@ describe('useCliModels', () => {
     expect(result.current.modelsByProvider.codex).toBeUndefined();
   });
 
+  it('refetches model metadata after the CLI update completes', () => {
+    const { result } = renderHook(() => useCliModels('codex'));
+    emitCliModels({ success: true, provider: 'codex', models: [{ id: 'old-model', label: 'Old' }] });
+    expect(result.current.modelsByProvider.codex?.[0].id).toBe('old-model');
+    sendBridgeEventMock.mockClear();
+    act(() => window.dispatchEvent(new Event('codex-cli-updated')));
+    expect(result.current.modelsByProvider.codex).toBeUndefined();
+    expect(sendBridgeEventMock).toHaveBeenCalledWith('codex_native_list_models', expect.stringContaining('"requestId"'));
+  });
+
   it('clears the codex cache without refetching when another provider is active', () => {
     const { result } = renderHook(() => useCliModels('claude'));
     emitCliModels({

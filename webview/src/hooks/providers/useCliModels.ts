@@ -333,7 +333,7 @@ export function useCliModels(currentProvider: string) {
   // cached catalog no longer reflects what the CLI would serve. Drop the cache
   // and refetch when the chat is currently on codex.
   useEffect(() => {
-    return subscribeActiveCodexProvider(() => {
+    const invalidate = () => {
       delete modelsCache.codex;
       delete defaultModelCache.codex;
       delete catalogHasEntriesCache.codex;
@@ -358,7 +358,13 @@ export function useCliModels(currentProvider: string) {
       if (currentProvider === 'codex') {
         beginLoad('codex');
       }
-    });
+    };
+    const unsubscribe = subscribeActiveCodexProvider(invalidate);
+    window.addEventListener('codex-cli-updated', invalidate);
+    return () => {
+      unsubscribe();
+      window.removeEventListener('codex-cli-updated', invalidate);
+    };
   }, [currentProvider, beginLoad]);
 
   const refreshCliModels = useCallback((providerId: string) => {

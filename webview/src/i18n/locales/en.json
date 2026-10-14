@@ -656,7 +656,7 @@
       "cli": "CLI"
     },
     "cli": {
-      "hint": "These CLIs must be installed and configured in your system terminal. The plugin only detects installation status and version — it will never install them for you. Confirm each CLI works in the terminal before coming back here to use it.",
+      "hint": "Manage Codex installation and versions in SDK / CLI Dependencies. Install and configure other CLIs in your system terminal.",
       "refresh": "Re-check",
       "retry": "Retry",
       "loading": "Checking CLI installation status…",
@@ -782,16 +782,16 @@
       "customSectionTitle": "Custom models",
       "editPricing": "Edit pricing"
     },
-    "dependencies": "SDK Dependencies",
-    "dependenciesDesc": "Manage AI SDK dependency installations and updates",
+    "dependencies": "SDK / CLI Dependencies",
+    "dependenciesDesc": "Manage Claude SDK and the plugin-owned Codex CLI: check versions, install, update, roll back, or uninstall.",
     "dependency": {
-      "title": "SDK Dependency Management",
-      "description": "Manage AI SDK dependencies. Install the required SDK before first use.",
-      "installPolicyTip": "Installation issues? Copy the error to a terminal CLI AI to resolve",
+      "title": "SDK / CLI Dependencies",
+      "description": "Manage Claude SDK and the plugin-owned Codex CLI: check versions, install, update, roll back, or uninstall.",
+      "installPolicyTip": "Installed in a plugin-owned directory. Codex uses this version when installed and re-detects system CLIs after uninstall.",
       "claudeSdkName": "Claude Code SDK",
       "claudeSdkDescription": "Required for Claude AI features. Includes Claude Code SDK and related dependencies.",
       "codexSdkName": "Codex CLI",
-      "codexSdkDescription": "Required for Codex AI features. Detect the installed official Codex CLI (@openai/codex) on the CLI page; chat runs through app-server.",
+      "codexSdkDescription": "Manage the official @openai/codex CLI, including stable and prerelease versions, using app-server. Explicit CLI path overrides take priority.",
       "loading": "Loading dependency status...",
       "install": "Install",
       "installing": "Installing...",
@@ -819,7 +819,14 @@
       "uninstallFailed": "Uninstall failed: {{error}}",
       "updating": "Updating...",
       "updateSuccess": "{{name}} updated successfully",
-      "cliTransportBadge": "CLI · {{transport}}"
+      "cliTransportBadge": "CLI · {{transport}}",
+      "reinstallVersion": "Reinstall {{version}}",
+      "checkUpdates": "Check for updates",
+      "searchVersions": "Search versions",
+      "runtimeBusy": "A Codex task is running. Finish or stop it before changing the CLI.",
+      "runtimeMaintaining": "Another window is maintaining Codex CLI. Wait until it finishes.",
+      "useVersion": "Use version {{version}}",
+      "cliVersionsUnavailable": "The version list is unavailable. Enter an exact version in the selector to install it."
     },
     "usage": "Usage Statistics",
     "usageDesc": "View your Token consumption, cost statistics and usage trend analysis",

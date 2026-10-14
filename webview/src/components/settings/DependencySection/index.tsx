@@ -38,6 +38,14 @@ const DependencySection = ({ addToast, isActive }: DependencySectionProps) => {
     <div className={styles.dependencySection}>
       <h3 className={styles.sectionTitle}>{t('settings.dependency.title')}</h3>
       <p className={styles.sectionDesc}>{t('settings.dependency.description')}</p>
+      <button type="button" className={styles.updateBtn} disabled={isAnyOperationInProgress}
+        onClick={() => {
+          window.sendToJava?.('check_dependency_updates:');
+          window.sendToJava?.('get_dependency_versions:');
+        }}>
+        <span className="codicon codicon-refresh" />
+        {t('settings.dependency.checkUpdates')}
+      </button>
 
       {/* SDK Install Policy Tip */}
       <div className={styles.sdkWarningBar}>

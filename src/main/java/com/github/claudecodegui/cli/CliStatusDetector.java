@@ -54,6 +54,11 @@ public final class CliStatusDetector {
     private CliStatusDetector() {
     }
 
+    /** 更新完成后必须立即重新检测版本。 */
+    public static synchronized void invalidateCache() {
+        detectAllCache = null;
+    }
+
     /**
      * Non-blocking variant of {@link #detectAll()}: returns the last cached
      * result immediately — even when expired — and refreshes the cache on a
@@ -134,6 +139,18 @@ public final class CliStatusDetector {
                         ProbeResult probe = probe(preferWindowsSpawnable(override));
                         return probe.ok ? CliToolStatus.installed(tool, probe.version, probe.resolvedPath)
                                 : CliToolStatus.error(tool, "Configured Codex CLI cannot be executed: " + override);
+                    }
+                }
+            }
+            if (tool == CliToolId.CODEX) {
+                for (Path candidate : codexLegacyCandidates(new DependencyManager().getSdkNodeModulesDir("codex-cli"),
+                        PlatformUtils.isWindows() ? "win32" : PlatformUtils.isMac() ? "darwin" : "linux",
+                        System.getProperty("os.arch"))) {
+                    if (candidate.toFile().isFile()) {
+                        ProbeResult probe = probe(candidate.toString());
+                        if (probe.ok) {
+                            return CliToolStatus.installed(tool, probe.version, probe.resolvedPath);
+                        }
                     }
                 }
             }

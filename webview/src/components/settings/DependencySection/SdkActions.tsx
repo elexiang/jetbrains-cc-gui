@@ -5,6 +5,7 @@ import styles from './style.module.less';
 
 interface SdkActionsProps {
   installed: boolean;
+  allowReinstall?: boolean;
   targetVersion?: string;
   action: VersionAction;
   isInstalling: boolean;
@@ -134,6 +135,7 @@ const UninstallButton = ({ isUninstalling, disabled, onUninstall }: UninstallBut
 
 const SdkActions = ({
   installed,
+  allowReinstall = false,
   targetVersion,
   action,
   isInstalling,
@@ -146,9 +148,11 @@ const SdkActions = ({
   onUninstall,
 }: SdkActionsProps) => {
   const { t } = useTranslation();
-  const actionLabel = resolveActionLabel(t, installed, targetVersion, action);
+  const actionLabel = installed && allowReinstall && action === 'current'
+    ? t('settings.dependency.reinstallVersion', { version: `v${targetVersion}` })
+    : resolveActionLabel(t, installed, targetVersion, action);
   // Only allow one operation at a time (install, uninstall, or update)
-  const updateDisabled = isAnyOperationInProgress || nodeAvailable === false || action === 'current';
+  const updateDisabled = isAnyOperationInProgress || nodeAvailable === false || !targetVersion || (action === 'current' && !allowReinstall);
 
   return (
     <div className={styles.sdkActions}>

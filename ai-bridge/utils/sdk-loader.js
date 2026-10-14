@@ -148,6 +148,7 @@ export function getCodexCliStatus(depsBaseOverride) {
         return cached.status;
     }
     const status = resolveCodexCli({
+        managedRoot: join(getSdkRootDir('codex-cli', depsBaseOverride), 'node_modules'),
         depsRoot: join(getSdkRootDir('codex-sdk', depsBaseOverride), 'node_modules'),
         ...(depsBaseOverride ? { discoverCli: () => null, env: {} } : {}),
     });

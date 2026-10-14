@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import styles from './style.module.less';
 
 interface VersionSelectProps {
@@ -7,6 +8,7 @@ interface VersionSelectProps {
   disabled: boolean;
   label: string;
   valueLabel: string;
+  allowCustomVersion?: boolean;
   onChange: (version: string) => void;
 }
 
@@ -16,11 +18,17 @@ const VersionSelect = ({
   disabled,
   label,
   valueLabel,
+  allowCustomVersion = false,
   onChange,
 }: VersionSelectProps) => {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
   const displayValue = value ? `v${value}` : '-';
+  const customVersion = search.trim().replace(/^[vV]/, '');
+  const canChooseCustom = allowCustomVersion && /^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.]+)?$/.test(customVersion)
+    && !options.includes(customVersion);
 
   useEffect(() => {
     if (!open) {
@@ -48,7 +56,7 @@ const VersionSelect = ({
       <button
         type="button"
         className={`${styles.versionSelectTrigger} ${open ? styles.open : ''}`}
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={() => { setSearch(''); setOpen((prev) => !prev); }}
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -60,7 +68,22 @@ const VersionSelect = ({
 
       {open && (
         <div className={styles.versionDropdown} role="listbox" aria-label={label}>
-          {options.map((version) => {
+          <input
+            type="search"
+            className={styles.versionSearch}
+            aria-label={t('settings.dependency.searchVersions')}
+            placeholder={t('settings.dependency.searchVersions')}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            onKeyDown={(event) => { if (event.key === 'Escape') setOpen(false); }}
+          />
+          {canChooseCustom && (
+            <button type="button" role="option" aria-selected={false} className={styles.versionOption}
+              onClick={() => { onChange(customVersion); setOpen(false); }}>
+              {t('settings.dependency.useVersion', { version: `v${customVersion}` })}
+            </button>
+          )}
+          {options.filter(version => version.toLowerCase().includes(search.trim().toLowerCase())).map((version) => {
             const selected = version === value;
 
             return (

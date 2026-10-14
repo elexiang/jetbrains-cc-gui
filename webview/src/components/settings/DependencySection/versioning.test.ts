@@ -6,6 +6,11 @@ import {
 } from './versioning';
 
 describe('DependencySection versioning helpers', () => {
+  it('distinguishes a stable release from its prereleases and orders numeric prerelease parts', () => {
+    expect(getVersionAction({ installed: true, installedVersion: '0.162.0-alpha.10', requestedVersion: '0.162.0' })).toBe('update');
+    expect(getVersionAction({ installed: true, installedVersion: '0.162.0', requestedVersion: '0.162.0-alpha.10' })).toBe('rollback');
+    expect(getVersionAction({ installed: true, installedVersion: '0.162.0-alpha.10', requestedVersion: '0.162.0-alpha.2' })).toBe('rollback');
+  });
   it('uses the selected dropdown version as the requested version', () => {
     expect(getRequestedVersion(' v0.2.88 ')).toBe('0.2.88');
   });

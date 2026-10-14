@@ -113,6 +113,7 @@ function captureOperationMarkers(operation) {
 function resolveCliCommand(stdinData) {
   const resolution = resolveCodexCli({
     explicitPath: stdinData?.codexCliPath || null,
+    managedRoot: join(getCodemossDir(), 'dependencies', 'codex-cli', 'node_modules'),
     depsRoot: join(getCodemossDir(), 'dependencies', 'codex-sdk', 'node_modules'),
     nodePath: process.execPath,
     env: getCodexPristineBaseEnv(),
@@ -905,4 +906,12 @@ export async function codexShutdownPersistentRuntimes() {
   }
   await Promise.all(teardowns);
   return { shutDown: teardowns.length };
+}
+
+/** CLI replacement must never cancel a live user operation. */
+export async function codexPrepareCliUpdatePersistent() {
+  if ([...sessionServices.values()].some(entry => entry.service.busy || entry.service.queue.length > 0)) {
+    throw new Error('busy');
+  }
+  return await codexShutdownPersistentRuntimes();
 }

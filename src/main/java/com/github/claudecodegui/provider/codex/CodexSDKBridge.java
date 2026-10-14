@@ -13,6 +13,7 @@ import com.github.claudecodegui.provider.common.DaemonBridge;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.SDKResult;
 import com.github.claudecodegui.settings.ConfigPathManager;
+import com.github.claudecodegui.cli.CodexCliMaintenance;
 
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
@@ -33,7 +34,7 @@ import java.util.function.Supplier;
  * Keeps the shared Java provider contract while delegating native thread/turn
  * communication to the long-running Node daemon.
  */
-public class CodexSDKBridge extends BaseSDKBridge {
+public class CodexSDKBridge extends BaseSDKBridge implements CodexCliMaintenance.Runtime {
 
     private static final String IMAGE_STORAGE_DIR_NAME = "codex-images";
     private final CodexHistoryReader historyReader;
@@ -47,6 +48,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
     private final Map<String, MessageCallback> activeCallbacks = new ConcurrentHashMap<>();
     private final Map<String, MessageCallback> callbackSubscriptions = new ConcurrentHashMap<>();
     private final String bridgeOwnerId = UUID.randomUUID().toString();
+    private final java.util.concurrent.atomic.AtomicInteger maintenanceOperations = new java.util.concurrent.atomic.AtomicInteger();
     private final String ownerScope;
     private final CodexInteractionRegistry interactionRegistry = new CodexInteractionRegistry();
 
@@ -67,6 +69,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
                 LOG, nodeDetector, getDirectoryResolver(), envConfigurator);
         this.appServerRequestExecutor = new CodexAppServerRequestExecutor(LOG, null);
         this.daemonCoordinator.addDaemonEventListener(this::handleCodexDaemonEvent);
+        CodexCliMaintenance.register(this);
     }
 
     CodexSDKBridge(Path sessionsDir) {
@@ -84,6 +87,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
                 LOG, nodeDetector, getDirectoryResolver(), envConfigurator);
         this.appServerRequestExecutor = new CodexAppServerRequestExecutor(LOG, null);
         this.daemonCoordinator.addDaemonEventListener(this::handleCodexDaemonEvent);
+        CodexCliMaintenance.register(this);
     }
 
     /** Assembles native provider integration tests without touching real account configuration. */
@@ -98,6 +102,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
         this.daemonCoordinator = new CodexDaemonCoordinator(LOG, daemonFactory);
         this.appServerRequestExecutor = new CodexAppServerRequestExecutor(LOG, null);
         this.daemonCoordinator.addDaemonEventListener(this::handleCodexDaemonEvent);
+        CodexCliMaintenance.register(this);
     }
 
     void handleCodexDaemonEvent(String event, JsonObject data) {
@@ -631,7 +636,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
                 // Register the callbacks only after every synchronous setup step
                 // has succeeded: a capture failure must not leave a stale entry
                 // routing daemon events to a dead turn.
-                this.activeCallbacks.put(safeChannelId, callback);
+                CodexCliMaintenance.registerOperation(() -> this.activeCallbacks.put(safeChannelId, callback));
                 this.callbackSubscriptions.put(safeChannelId, callback);
 
                 CompletableFuture<SDKResult> resultFuture = this.appServerRequestExecutor.sendMessageViaDaemon(
@@ -1137,9 +1142,10 @@ public class CodexSDKBridge extends BaseSDKBridge {
             this.callbackSubscriptions.put(safeChannelId, callback);
             // Stream-end unlocks controls before the previous send RPC drains.
             // Its trailing receiver must not intercept this control's approvals.
-            this.activeCallbacks.put(safeChannelId, callback);
+            CodexCliMaintenance.registerOperation(() -> this.activeCallbacks.put(safeChannelId, callback));
         }
         MessageCallback operationCallback = callback != null ? callback : this.callbackSubscriptions.get(safeChannelId);
+        CodexCliMaintenance.registerOperation(() -> this.maintenanceOperations.incrementAndGet());
         return this.dispatchCodexLongOperation(daemon, method, params, operationCallback)
                 .thenApply(acknowledgement -> {
                     if (!acknowledgement.has("error")) {
@@ -1147,6 +1153,7 @@ public class CodexSDKBridge extends BaseSDKBridge {
                     }
                     return acknowledgement;
                 }).whenComplete((response, failure) -> {
+                    this.maintenanceOperations.decrementAndGet();
                     if (callback != null) {
                         this.activeCallbacks.remove(safeChannelId, callback);
                     }
@@ -1625,6 +1632,26 @@ public class CodexSDKBridge extends BaseSDKBridge {
 
     /** Stop only the app-server daemon, keeping session registries intact. */
     public void shutdownDaemon() {
+        this.daemonCoordinator.shutdownDaemon();
+    }
+
+    @Override
+    public boolean isBusy() {
+        DaemonBridge daemon = this.daemonCoordinator.getCurrentDaemonBridge();
+        return !this.activeCallbacks.isEmpty() || this.maintenanceOperations.get() > 0
+                || daemon != null && daemon.getActiveRequestCount() > 0;
+    }
+
+    @Override
+    public void stopForUpdate() {
+        DaemonBridge daemon = this.daemonCoordinator.getCurrentDaemonBridge();
+        if (daemon != null && daemon.isAlive()) {
+            JsonObject reply = this.appServerRequestExecutor.sendControlCommand(
+                    daemon, "codex.shutdownRuntimes", new JsonObject(), 30_000L);
+            if (reply.has("error")) {
+                throw new IllegalStateException(reply.get("error").getAsString());
+            }
+        }
         this.daemonCoordinator.shutdownDaemon();
     }
 

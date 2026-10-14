@@ -31,6 +31,7 @@ const {
   codexResetRuntimePersistent,
   codexReleaseThreadPersistent,
   codexShutdownPersistentRuntimes,
+  codexPrepareCliUpdatePersistent,
   getCodexRuntimeSnapshot,
   filterCodexProjectThreads,
   projectThreadFileChanges,
@@ -609,6 +610,8 @@ test('abortTurn stops the active operation without queueing', async () => {
     interaction = codexEvents().find((event) => event.kind === 'interactionRequested');
   }
   assert.ok(interaction, 'turn active (approval open)');
+  await assert.rejects(codexPrepareCliUpdatePersistent(), /busy/);
+  assert.equal(getCodexRuntimeSnapshot().busy, true, 'update refusal leaves the user operation active');
 
   const abortResult = await codexAbortTurnPersistent({
     channelId: 'ch-abort',
@@ -651,5 +654,13 @@ test('resetRuntime drains and disposes the session entry', async () => {
     dispose: true,
   });
   assert.equal(result.reset, true);
+  assert.equal(getCodexRuntimeSnapshot().sessionCount, 0);
+});
+
+test('CLI update drains idle native children before allowing replacement', async () => {
+  await codexPreconnectPersistent({ channelId: 'ch-update-idle', cwd: testCwd,
+    codexCommandPrefix: peerCommandPrefix('early-notification') });
+  assert.equal(getCodexRuntimeSnapshot().sessionCount, 1);
+  await codexPrepareCliUpdatePersistent();
   assert.equal(getCodexRuntimeSnapshot().sessionCount, 0);
 });

@@ -273,6 +273,7 @@ export function resolveManagedCodexCli(
 export function resolveCodexCli({
   explicitPath = null,
   depsRoot = null,
+  managedRoot = null,
   platform = process.platform,
   arch = process.arch,
   nodePath = 'node',
@@ -307,6 +308,13 @@ export function resolveCodexCli({
       candidates: [candidate],
       rejected: classified.suspect ? [{ path: trimmed, reason: classified.reason }] : [],
     };
+  }
+
+  const preferred = resolveManagedCodexCli(managedRoot, { platform, arch, nodePath });
+  if (preferred) {
+    const candidate = { command: preferred.command, source: 'managed', label: preferred.packageDir, kind: preferred.kind };
+    return { status: 'resolved', source: 'managed', kind: preferred.kind, command: preferred.command,
+      version: preferred.version, candidates: [candidate], rejected: [] };
   }
 
   const discovered = discoverCliCandidates

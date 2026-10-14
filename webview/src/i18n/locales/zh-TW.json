@@ -418,16 +418,16 @@
       "customSectionTitle": "自訂模型",
       "editPricing": "編輯價格"
     },
-    "dependencies": "SDK 依賴",
-    "dependenciesDesc": "管理 AI SDK 依賴套件的安裝和更新",
+    "dependencies": "SDK / CLI 依賴管理",
+    "dependenciesDesc": "管理 Claude SDK 和外掛專屬 Codex CLI，支援版本檢查、安裝、更新、回退和解除安裝。",
     "dependency": {
-      "title": "SDK 依賴管理",
-      "description": "管理 AI SDK 依賴套件。首次使用時需要安裝對應的 SDK。",
-      "installPolicyTip": "安裝遇到問題？可將報錯複製給終端CLI AI 解決",
+      "title": "SDK / CLI 依賴管理",
+      "description": "管理 Claude SDK 和外掛專屬 Codex CLI，支援版本檢查、安裝、更新、回退和解除安裝。",
+      "installPolicyTip": "安裝在外掛專屬目錄。Codex 安裝後優先使用此版本；解除安裝後重新偵測系統 CLI。",
       "claudeSdkName": "Claude Code SDK",
       "claudeSdkDescription": "Claude AI 功能所需。包含 Claude Code SDK 及相關依賴。",
       "codexSdkName": "Codex CLI",
-      "codexSdkDescription": "Codex AI 功能所需。在 CLI 頁面偵測已安裝的官方 Codex CLI（@openai/codex），聊天透過 app-server 執行。",
+      "codexSdkDescription": "管理官方 @openai/codex CLI，可選擇正式版或預發布版，聊天透過 app-server 執行。明確設定的 CLI 路徑優先。",
       "loading": "正在載入依賴狀態...",
       "install": "安裝",
       "installing": "安裝中...",
@@ -444,7 +444,14 @@
       "uninstallFailed": "解除安裝失敗: {{error}}",
       "updating": "更新中...",
       "updateSuccess": "{{name}} 更新成功",
-      "cliTransportBadge": "CLI · {{transport}}"
+      "cliTransportBadge": "CLI · {{transport}}",
+      "reinstallVersion": "重新安裝 {{version}}",
+      "checkUpdates": "檢查更新",
+      "searchVersions": "搜尋版本號",
+      "runtimeBusy": "有 Codex 工作正在執行，請先完成或停止工作後再操作。",
+      "runtimeMaintaining": "其他視窗正在維護 Codex CLI，請等待完成。",
+      "useVersion": "使用版本 {{version}}",
+      "cliVersionsUnavailable": "版本清單取得失敗，可在版本選擇框內輸入完整版本號安裝。"
     },
     "usage": "使用統計",
     "usageDesc": "檢視您的 Token 消耗、費用統計和使用趨勢分析",
@@ -875,7 +882,7 @@
       }
     },
     "cli": {
-      "hint": "以下 CLI 需在系統終端自行安裝並完成設定。外掛只負責偵測是否已安裝及版本號，不會替你自動安裝。請先在終端確認可正常使用，再回到此處使用。",
+      "hint": "CLI 安裝和版本切換請到「SDK / CLI 依賴管理」。其他 CLI 請在系統終端安裝並完成設定。",
       "refresh": "Re-check",
       "retry": "Retry",
       "loading": "Checking CLI installation status…",

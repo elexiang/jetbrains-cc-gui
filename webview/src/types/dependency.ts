@@ -13,7 +13,7 @@
 /**
  * SDK ID type
  */
-export type SdkId = 'claude-sdk';
+export type SdkId = 'claude-sdk' | 'codex-cli';
 
 /**
  * SDK installation status

@@ -162,6 +162,7 @@ test('explicit external path wins over the managed dependency', () => {
     writeFileSync(external, 'binary', 'utf8');
     const result = resolveCodexCli({
       explicitPath: external,
+      managedRoot: depsRoot,
       depsRoot,
       platform: 'win32',
       arch: 'x64',
@@ -172,6 +173,22 @@ test('explicit external path wins over the managed dependency', () => {
   } finally {
     rmSync(depsRoot, { recursive: true, force: true });
   }
+});
+
+test('plugin managed CLI takes priority over PATH and uninstall returns to external discovery', () => {
+  const root = makeDepsRoot();
+  try {
+    const packageDir = installNewLayout(root);
+    const external = join(root, 'external.exe');
+    writeFileSync(external, 'binary');
+    const options = { managedRoot: root, platform: 'win32', arch: 'x64', env: {}, discoverCli: () => external };
+    const selected = resolveCodexCli(options);
+    assert.equal(selected.source, 'managed');
+    assert.ok(selected.command[0].startsWith(packageDir));
+    rmSync(packageDir, { recursive: true, force: true });
+    assert.equal(resolveCodexCli(options).source, 'external');
+    assert.deepEqual(resolveCodexCli(options).command, [external]);
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
 test('explicit path with spaces resolves without a shell', () => {

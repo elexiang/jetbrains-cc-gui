@@ -4,6 +4,7 @@ import com.github.claudecodegui.bridge.BridgeDirectoryResolver;
 import com.github.claudecodegui.bridge.EnvironmentConfigurator;
 import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.provider.common.DaemonBridge;
+import com.github.claudecodegui.cli.CodexCliMaintenance;
 import com.intellij.openapi.diagnostic.Logger;
 
 import java.util.List;
@@ -79,6 +80,9 @@ class CodexDaemonCoordinator {
      * back to a per-turn exec process (no silent exec downgrade, design D2).
      */
     DaemonBridge getDaemonBridge() {
+        if (CodexCliMaintenance.isUpdating()) {
+            return null;
+        }
         DaemonBridge current = this.daemonBridge;
         if (current != null && current.isAlive()) {
             return current;
@@ -88,6 +92,9 @@ class CodexDaemonCoordinator {
         }
 
         synchronized (this.daemonLock) {
+            if (CodexCliMaintenance.isUpdating()) {
+                return null;
+            }
             current = this.daemonBridge;
             if (current != null && current.isAlive()) {
                 return current;

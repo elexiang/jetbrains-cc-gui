@@ -25,6 +25,7 @@ export async function generateCodexText({
 }, {
   runtimeState = getCodexRuntimeState,
   resolveCli = () => resolveCodexCli({
+    managedRoot: join(getCodemossDir(), 'dependencies', 'codex-cli', 'node_modules'),
     depsRoot: join(getCodemossDir(), 'dependencies', 'codex-sdk', 'node_modules'),
     nodePath: process.execPath,
     // Never resolve against the live process.env: request handlers inject

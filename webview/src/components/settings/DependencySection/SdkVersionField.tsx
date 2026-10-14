@@ -8,6 +8,7 @@ interface SdkVersionFieldProps {
   isVersionLoading: boolean;
   isAnyOperationInProgress: boolean;
   targetVersionLabel: string;
+  allowCustomVersion?: boolean;
   onVersionChange: (version: string) => void;
 }
 
@@ -17,6 +18,7 @@ const SdkVersionField = ({
   isVersionLoading,
   isAnyOperationInProgress,
   targetVersionLabel,
+  allowCustomVersion = false,
   onVersionChange,
 }: SdkVersionFieldProps) => {
   const { t } = useTranslation();
@@ -27,7 +29,8 @@ const SdkVersionField = ({
       <VersionSelect
         value={selectedVersion}
         options={versionOptions}
-        disabled={isAnyOperationInProgress || isVersionLoading || versionOptions.length === 0}
+        disabled={isAnyOperationInProgress || isVersionLoading || (!allowCustomVersion && versionOptions.length === 0)}
+        allowCustomVersion={allowCustomVersion}
         label={t('settings.dependency.targetVersion')}
         valueLabel={targetVersionLabel}
         onChange={onVersionChange}

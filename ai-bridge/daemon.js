@@ -938,6 +938,14 @@ async function runDaemonMain() {
       return;
     }
 
+    if (request.method === 'codex.shutdownRuntimes') {
+      const shutdownId = request.id || '0';
+      import('./services/codex/persistent-codex-service.js')
+        .then(module => module.codexPrepareCliUpdatePersistent())
+        .then(result => writeRawLine({ id: shutdownId, done: true, success: true, result }))
+        .catch(error => writeRawLine({ id: shutdownId, done: true, success: false, error: error.message }));
+      return;
+    }
     if (request.method === 'codex.resetRuntime' || request.method === 'codex.releaseThread') {
       const handler = request.method === 'codex.resetRuntime'
         ? codexResetRuntimePersistent : codexReleaseThreadPersistent;

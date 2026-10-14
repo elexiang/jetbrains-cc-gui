@@ -24,6 +24,11 @@ public enum SdkDefinition {
         Arrays.asList("0.3.220", "0.3.201", "0.3.182"),
         "Claude AI 提供商所需，包含 Agent SDK 和 Bedrock 支持。",
         "0.3.182" // minRequiredVersion — Fable tier (ANTHROPIC_DEFAULT_FABLE_MODEL) needs SDK >= 0.3.182
+    ),
+    CODEX_CLI(
+        "codex-cli", "Codex CLI", "@openai/codex", "latest",
+        Collections.emptyList(), Collections.emptyList(),
+        "插件专属 Codex CLI，通过 app-server 运行，支持指定版本安装、更新和回退。", null
     );
 
     private final String id;

@@ -9,9 +9,9 @@ const translations: Record<string, string> = {
   'settings.dependency.installPolicyTip': '安装遇到问题？可将报错复制给终端 CLI AI 解决',
   'settings.dependency.loading': '加载中',
   'settings.dependency.claudeSdkName': 'Claude Code SDK',
-  'settings.dependency.codexSdkName': 'Codex SDK',
+  'settings.dependency.codexSdkName': 'Codex CLI',
   'settings.dependency.claudeSdkDescription': 'Claude AI 功能所需。包含 Claude Code SDK 及相关依赖。',
-  'settings.dependency.codexSdkDescription': 'Codex AI 功能所需。包含 OpenAI Codex SDK。',
+  'settings.dependency.codexSdkDescription': 'Codex AI 功能所需。包含 OpenAI Codex CLI。',
   'settings.dependency.targetVersion': '目标版本',
   'settings.dependency.loadingVersions': '版本列表加载中',
   'settings.dependency.installedVersion': '当前版本 {{version}}',
@@ -19,6 +19,9 @@ const translations: Record<string, string> = {
   'settings.dependency.installVersion': '安装 {{version}}',
   'settings.dependency.install': '安装',
   'settings.dependency.currentVersionAction': '当前版本',
+  'settings.dependency.reinstallVersion': '重新安装 {{version}}',
+  'settings.dependency.checkUpdates': '检查更新',
+  'settings.dependency.useVersion': '使用版本 {{version}}',
   'settings.dependency.updateToVersion': '更新到 {{version}}',
   'settings.dependency.rollbackToVersion': '回退到 {{version}}',
   'settings.dependency.uninstall': '卸载',
@@ -44,6 +47,69 @@ vi.mock('react-i18next', () => ({
 }));
 
 describe('DependencySection', () => {
+  it('allows an exact manually entered Codex version when the remote list is unavailable', () => {
+    render(<DependencySection isActive={false} />);
+    act(() => {
+      window.updateDependencyStatus?.(JSON.stringify({
+        'claude-sdk': { status: 'not_installed' }, 'codex-cli': { status: 'not_installed' },
+      }));
+      window.dependencyVersionsLoaded?.(JSON.stringify({
+        'codex-cli': { sdkId: 'codex-cli', versions: [], source: 'fallback' },
+      }));
+    });
+    fireEvent.click(screen.getAllByRole('button', { name: '目标版本' })[0]);
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: '0.163.0-alpha.10' } });
+    fireEvent.click(screen.getByRole('option', { name: '使用版本 v0.163.0-alpha.10' }));
+    act(() => window.dependencyVersionsLoaded?.(JSON.stringify({
+      'codex-cli': { sdkId: 'codex-cli', versions: ['0.162.1'], source: 'remote' },
+    })));
+    fireEvent.click(screen.getByRole('button', { name: '安装 v0.163.0-alpha.10' }));
+    expect(window.sendToJava).toHaveBeenCalledWith('install_dependency:{"id":"codex-cli","version":"0.163.0-alpha.10"}');
+  });
+  it('sends exact Codex versions for rollback and reinstall and refreshes the catalog after install and uninstall', () => {
+    const refreshed = vi.fn();
+    window.addEventListener('codex-cli-updated', refreshed);
+    render(<DependencySection isActive={false} />);
+    act(() => {
+      window.updateDependencyStatus?.(JSON.stringify({
+        'claude-sdk': { status: 'not_installed' },
+        'codex-cli': { status: 'installed', installedVersion: '0.162.1', runtimeKind: 'cli', transport: 'app-server' },
+      }));
+      window.dependencyVersionsLoaded?.(JSON.stringify({
+        'codex-cli': { sdkId: 'codex-cli', versions: ['0.162.1', '0.162.0-alpha.10', '0.154.0'], source: 'remote', latestVersion: '0.162.1' },
+      }));
+    });
+    fireEvent.click(screen.getByRole('button', { name: '重新安装 v0.162.1' }));
+    expect(window.sendToJava).toHaveBeenCalledWith('update_dependency:{"id":"codex-cli","version":"0.162.1"}');
+    act(() => window.dependencyInstallResult?.(JSON.stringify({ sdkId: 'codex-cli', success: false, error: 'busy' })));
+    expect(refreshed).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: '目标版本 v0.162.1' }));
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: '0.154' } });
+    expect(screen.queryByRole('option', { name: 'v0.162.1' })).toBeNull();
+    fireEvent.click(screen.getByRole('option', { name: 'v0.154.0' }));
+    fireEvent.click(screen.getByRole('button', { name: '回退到 v0.154.0' }));
+    expect(window.sendToJava).toHaveBeenCalledWith('update_dependency:{"id":"codex-cli","version":"0.154.0"}');
+    act(() => {
+      window.dependencyInstallResult?.(JSON.stringify({ sdkId: 'codex-cli', success: true }));
+      window.updateDependencyStatus?.(JSON.stringify({
+        'claude-sdk': { status: 'not_installed' },
+        'codex-cli': { status: 'installed', installedVersion: '0.154.0' },
+      }));
+    });
+    expect(refreshed).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: '卸载' }));
+    expect(window.sendToJava).toHaveBeenCalledWith('uninstall_dependency:{"id":"codex-cli"}');
+    act(() => {
+      window.dependencyUninstallResult?.(JSON.stringify({ sdkId: 'codex-cli', success: true }));
+      window.updateDependencyStatus?.(JSON.stringify({
+        'claude-sdk': { status: 'not_installed' }, 'codex-cli': { status: 'not_installed' },
+      }));
+    });
+    expect(refreshed).toHaveBeenCalledTimes(2);
+    fireEvent.click(screen.getByRole('button', { name: '安装 v0.154.0' }));
+    expect(window.sendToJava).toHaveBeenCalledWith('install_dependency:{"id":"codex-cli","version":"0.154.0"}');
+    window.removeEventListener('codex-cli-updated', refreshed);
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     window.sendToJava = vi.fn();
@@ -141,9 +207,9 @@ describe('DependencySection', () => {
           installedVersion: '0.2.89',
           hasUpdate: false,
         },
-        'codex-sdk': {
-          id: 'codex-sdk',
-          name: 'Codex SDK',
+        'codex-cli': {
+          id: 'codex-cli',
+          name: 'Codex CLI',
           status: 'not_installed',
           hasUpdate: false,
         },
@@ -156,8 +222,8 @@ describe('DependencySection', () => {
           source: 'remote',
           latestVersion: '0.2.89',
         },
-        'codex-sdk': {
-          sdkId: 'codex-sdk',
+        'codex-cli': {
+          sdkId: 'codex-cli',
           versions: ['0.118.0', '0.117.0'],
           source: 'remote',
           latestVersion: '0.118.0',
@@ -166,11 +232,11 @@ describe('DependencySection', () => {
     });
 
     expect(screen.queryByText('自定义版本')).toBeNull();
-    expect(screen.getAllByText('目标版本')).toHaveLength(1);
-    expect(screen.queryByText('Codex SDK')).toBeNull();
+    expect(screen.getAllByText('目标版本')).toHaveLength(2);
+    expect(screen.getByText('Codex CLI')).toBeTruthy();
     expect(screen.queryByRole('combobox')).toBeNull();
     expect(screen.getByRole('button', { name: '目标版本 v0.2.89' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: '目标版本 v0.118.0' })).toBeNull();
+    expect(screen.getByRole('button', { name: '目标版本 v0.118.0' })).toBeTruthy();
     expect(screen.getByRole('button', { name: '当前版本' })).toBeTruthy();
     expect(screen.getAllByRole('button', { name: '卸载' })).toHaveLength(1);
   });
@@ -188,9 +254,9 @@ describe('DependencySection', () => {
           hasUpdate: true,
           latestVersion: '0.2.90',
         },
-        'codex-sdk': {
-          id: 'codex-sdk',
-          name: 'Codex SDK',
+        'codex-cli': {
+          id: 'codex-cli',
+          name: 'Codex CLI',
           status: 'not_installed',
           hasUpdate: false,
         },
@@ -203,8 +269,8 @@ describe('DependencySection', () => {
           source: 'remote',
           latestVersion: '0.2.90',
         },
-        'codex-sdk': {
-          sdkId: 'codex-sdk',
+        'codex-cli': {
+          sdkId: 'codex-cli',
           versions: ['0.118.0', '0.117.0'],
           source: 'remote',
           latestVersion: '0.118.0',
@@ -239,9 +305,9 @@ describe('DependencySection', () => {
           installedVersion: '0.2.89',
           hasUpdate: false,
         },
-        'codex-sdk': {
-          id: 'codex-sdk',
-          name: 'Codex SDK',
+        'codex-cli': {
+          id: 'codex-cli',
+          name: 'Codex CLI',
           status: 'not_installed',
           hasUpdate: false,
         },
@@ -259,8 +325,8 @@ describe('DependencySection', () => {
           source: 'remote',
           latestVersion: '0.2.89',
         },
-        'codex-sdk': {
-          sdkId: 'codex-sdk',
+        'codex-cli': {
+          sdkId: 'codex-cli',
           versions: ['0.118.0', '0.117.0'],
           source: 'remote',
           latestVersion: '0.118.0',

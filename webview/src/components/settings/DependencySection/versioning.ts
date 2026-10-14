@@ -37,8 +37,10 @@ export const compareVersions = (left?: string, right?: string): number => {
     return 0;
   }
 
-  const leftParts = normalizedLeft.split('.');
-  const rightParts = normalizedRight.split('.');
+  const [leftCore, leftPre] = normalizedLeft.split('-', 2);
+  const [rightCore, rightPre] = normalizedRight.split('-', 2);
+  const leftParts = leftCore.split('.');
+  const rightParts = rightCore.split('.');
   const maxLength = Math.max(leftParts.length, rightParts.length);
 
   for (let index = 0; index < maxLength; index += 1) {
@@ -50,6 +52,23 @@ export const compareVersions = (left?: string, right?: string): number => {
     }
   }
 
+  if (leftPre === rightPre) return 0;
+  if (leftPre === undefined) return 1;
+  if (rightPre === undefined) return -1;
+  const leftIds = leftPre.split('.');
+  const rightIds = rightPre.split('.');
+  for (let index = 0; index < Math.max(leftIds.length, rightIds.length); index++) {
+    const a = leftIds[index];
+    const b = rightIds[index];
+    if (a === undefined) return -1;
+    if (b === undefined) return 1;
+    if (a === b) continue;
+    const aNumeric = /^\d+$/.test(a);
+    const bNumeric = /^\d+$/.test(b);
+    if (aNumeric && bNumeric) return Number(a) - Number(b);
+    if (aNumeric !== bNumeric) return aNumeric ? -1 : 1;
+    return a < b ? -1 : 1;
+  }
   return 0;
 };
 

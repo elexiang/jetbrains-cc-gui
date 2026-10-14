@@ -60,6 +60,8 @@ const mergeDependencyUpdates = (
 };
 
 export const SDK_DEFINITIONS = [
+  { id: 'codex-cli' as SdkId, nameKey: 'settings.dependency.codexSdkName',
+    description: 'settings.dependency.codexSdkDescription', relatedProviders: ['codex'] },
   {
     id: 'claude-sdk' as SdkId,
     nameKey: 'settings.dependency.claudeSdkName',
@@ -84,9 +86,11 @@ export const useDependencySection = ({ addToast, isActive }: DependencySectionPr
   const [selectedVersions, setSelectedVersions] = useState<Record<SdkId, string>>({} as Record<SdkId, string>);
   const [loadingVersions, setLoadingVersions] = useState<Record<SdkId, boolean>>({
     'claude-sdk': false,
+    'codex-cli': false,
   });
   const isNodePathReadyRef = useRef(false);
   const sdkStatusRef = useRef<Record<SdkId, SdkStatus>>({} as Record<SdkId, SdkStatus>);
+  const updatesRef = useRef<UpdateCheckResult>({});
 
   // Use refs to store the latest callback and t function to avoid useEffect re-runs
   const addToastRef = useRef(addToast);
@@ -129,8 +133,9 @@ export const useDependencySection = ({ addToast, isActive }: DependencySectionPr
           setLoading(false);
           settleDependencyStatusRequest('error');
         } else {
-          setSdkStatus(status);
-          sdkStatusRef.current = status;
+          const mergedStatus = mergeDependencyUpdates(status, updatesRef.current);
+          setSdkStatus(mergedStatus);
+          sdkStatusRef.current = mergedStatus;
           setStatusError(false);
           setLoading(false);
           settleDependencyStatusRequest('ready');
@@ -171,6 +176,11 @@ export const useDependencySection = ({ addToast, isActive }: DependencySectionPr
         updatingSdkRef.current = null;
 
         if (result.success) {
+          delete updatesRef.current[result.sdkId];
+          if (result.sdkId === 'codex-cli') {
+            window.dispatchEvent(new Event('codex-cli-updated'));
+            sendToJava('get_cli_status:');
+          }
           const sdkDef = SDK_DEFINITIONS.find(d => d.id === result.sdkId);
           const sdkName = sdkDef ? tRef.current(sdkDef.nameKey) : result.sdkId;
           const msgKey = wasUpdating ? 'settings.dependency.updateSuccess' : 'settings.dependency.installSuccess';
@@ -183,7 +193,9 @@ export const useDependencySection = ({ addToast, isActive }: DependencySectionPr
         } else if (result.error === 'node_not_configured') {
           addToastRef.current?.(tRef.current('settings.dependency.nodeNotConfigured'), 'warning');
         } else {
-          addToastRef.current?.(tRef.current('settings.dependency.installFailed', { error: result.error }), 'error');
+          const error = result.error === 'busy' ? tRef.current('settings.dependency.runtimeBusy')
+            : result.error === 'update_in_progress' ? tRef.current('settings.dependency.runtimeMaintaining') : result.error;
+          addToastRef.current?.(tRef.current('settings.dependency.installFailed', { error }), 'error');
         }
       } catch (error) {
         console.error('[DependencySection] Failed to parse install result:', error);
@@ -204,6 +216,12 @@ export const useDependencySection = ({ addToast, isActive }: DependencySectionPr
         setUninstallingSdk(null);
 
         if (result.success) {
+          delete updatesRef.current[result.sdkId];
+          if (result.sdkId === 'codex-cli') {
+            window.dispatchEvent(new Event('codex-cli-updated'));
+            sendToJava('get_cli_status:');
+          }
+          requestFreshDependencyStatus();
           const sdkDef = SDK_DEFINITIONS.find(d => d.id === result.sdkId);
           const sdkName = sdkDef ? tRef.current(sdkDef.nameKey) : result.sdkId;
           addToastRef.current?.(tRef.current('settings.dependency.uninstallSuccess', { name: sdkName }), 'success');
@@ -235,6 +253,7 @@ export const useDependencySection = ({ addToast, isActive }: DependencySectionPr
     window.dependencyUpdateAvailable = (jsonStr: string) => {
       try {
         const updatePayload: UpdateCheckResult = JSON.parse(jsonStr);
+        updatesRef.current = { ...updatesRef.current, ...updatePayload };
         setSdkStatus((prev) => mergeDependencyUpdates(prev, updatePayload));
       } catch (error) {
         console.error('[DependencySection] Failed to parse dependency update result:', error);
@@ -270,7 +289,7 @@ export const useDependencySection = ({ addToast, isActive }: DependencySectionPr
             });
             const preferred = installedVersion ?? versionInfo.latestVersion ?? options[0];
             const current = getRequestedVersion(next[typedSdkId]);
-            if (!current || !options.includes(current)) {
+            if (!current || (typedSdkId !== 'codex-cli' && !options.includes(current))) {
               next[typedSdkId] = preferred ?? '';
             }
           });
@@ -352,6 +371,7 @@ export const useDependencySection = ({ addToast, isActive }: DependencySectionPr
     }
     setLoadingVersions({
       'claude-sdk': true,
+      'codex-cli': true,
     });
     setStatusError(false);
     setLoading(true);
@@ -381,6 +401,8 @@ export const useDependencySection = ({ addToast, isActive }: DependencySectionPr
 
   const handleUninstall = (sdkId: SdkId) => {
     setUninstallingSdk(sdkId);
+    setInstallLogs('');
+    setShowLogs(true);
     sendToJava(`uninstall_dependency:${JSON.stringify({ id: sdkId })}`);
   };
 

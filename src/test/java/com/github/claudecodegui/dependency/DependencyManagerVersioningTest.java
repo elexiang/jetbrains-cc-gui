@@ -9,6 +9,43 @@ import static org.junit.Assert.assertNull;
 
 public class DependencyManagerVersioningTest {
     @Test
+    public void codexVersionChoicesKeepOnlyRecentStableAndPrereleaseVersions() {
+        List<String> versions = new java.util.ArrayList<>();
+        for (int i = 0; i < 25; i++) versions.add("1.0." + i);
+        for (int i = 0; i < 15; i++) versions.add("2.0.0-alpha." + i);
+        List<String> recent = DependencyManager.recentCodexVersions(versions);
+        assertEquals(30, recent.size());
+        assertEquals("2.0.0-alpha.14", recent.get(0));
+        assertEquals("1.0.5", recent.get(recent.size() - 1));
+        org.junit.Assert.assertTrue(recent.contains("1.0.24"));
+        org.junit.Assert.assertTrue(recent.contains("2.0.0-alpha.5"));
+        org.junit.Assert.assertFalse(recent.contains("1.0.4"));
+        org.junit.Assert.assertFalse(recent.contains("2.0.0-alpha.4"));
+    }
+    @Test
+    public void codexHistoricalDateVersionsDoNotOverflowDuringSorting() {
+        String payload = "[\"0.1.2504161551\",\"0.1.4160940\",\"0.162.1\",\"0.1.2505172116\",\"0.163.0-alpha.10\"]";
+        assertEquals(List.of("0.163.0-alpha.10", "0.162.1", "0.1.2505172116", "0.1.2504161551", "0.1.4160940"),
+                DependencyManager.parseVersionList(payload, true));
+        assertEquals(-1, Integer.signum(DependencyManager.compareVersions("0.1.2504161551", "0.1.2505172116")));
+    }
+    @Test
+    public void codexInstallsTheCliPackageAtAnySelectedVersion() {
+        assertEquals(List.of("@openai/codex@0.162.0-alpha.17.2"),
+                DependencyManager.buildPackageSpecs(SdkDefinition.CODEX_CLI, "0.162.0-alpha.17.2"));
+        assertEquals(List.of("@openai/codex@latest"),
+                DependencyManager.buildPackageSpecs(SdkDefinition.CODEX_CLI, null));
+        assertNull(SdkDefinition.CODEX_CLI.getMinRequiredVersion());
+    }
+
+    @Test
+    public void codexVersionsIncludePrereleasesButExcludePlatformArtifacts() {
+        String payload = "[\"0.162.0-alpha.2\",\"0.162.0-alpha.10\",\"0.162.0\",\"0.162.0-win32-x64\",\"0.162.0-alpha.10-linux-arm64\"]";
+        assertEquals(List.of("0.162.0", "0.162.0-alpha.10", "0.162.0-alpha.2"),
+                DependencyManager.parseVersionList(payload, true));
+        assertEquals(List.of("0.162.0"), DependencyManager.parseVersionList(payload));
+    }
+    @Test
     public void shouldUseRequestedVersionForMainPackage() {
         List<String> packages = DependencyManager.buildPackageSpecs(
                 SdkDefinition.CLAUDE_SDK,

@@ -330,6 +330,19 @@ public class CodexProviderTransportIntegrationTest {
         } finally { bridge.cleanupAllProcesses(); }
     }
 
+    /** npm replacement starts only after the actual native child has exited. */
+    @Test
+    public void cliUpdateReleasesTheNativeProcessAndTheBridgeCanStartAgain() throws Exception {
+        try (Fixture fixture = this.fixture("early-notification")) {
+            assertTrue(fixture.send().get(15, TimeUnit.SECONDS).success);
+            long peerPid = fixture.peerPid();
+            assertTrue(ProcessHandle.of(peerPid).orElseThrow().isAlive());
+            fixture.bridge.stopForUpdate();
+            assertFalse(ProcessHandle.of(peerPid).map(ProcessHandle::isAlive).orElse(false));
+            assertTrue(fixture.send().get(15, TimeUnit.SECONDS).success);
+        }
+    }
+
     private Fixture fixture(String scenario) throws Exception {
         Path root = this.folder.newFolder(scenario).toPath();
         Path cwd = Files.createDirectory(root.resolve("workspace"));
