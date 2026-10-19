@@ -25,8 +25,8 @@ public class CodexContextWindowConfigTest {
                 manager.updateContextWindowPreset("default");
 
         assertEquals("default", config.getPreset());
-        assertEquals(Integer.valueOf(272_000), config.getContextWindow());
-        assertEquals(Integer.valueOf(244_800), config.getAutoCompactTokenLimit());
+        assertNull(config.getContextWindow());
+        assertNull(config.getAutoCompactTokenLimit());
         assertFalse(Files.exists(codexDir.resolve("config.toml")));
     }
 
@@ -128,6 +128,8 @@ public class CodexContextWindowConfigTest {
         assertTrue(written.contains("model = \"gpt-5.6-sol\""));
         assertTrue(written.contains("[profiles.large]\nmodel_context_window = 1000000"));
         assertEquals("default", config.getPreset());
+        assertNull(config.getContextWindow());
+        assertNull(config.getAutoCompactTokenLimit());
     }
 
     @Test
@@ -149,29 +151,28 @@ public class CodexContextWindowConfigTest {
     }
 
     @Test
-    public void serviceMigratesLegacy500kToDefaultOnInitialRead() throws Exception {
-        Path codexDir = Files.createTempDirectory("codex-context-migrate-500k");
-        Path configPath = codexDir.resolve("config.toml");
-        CodexSettingsManager manager = new CodexSettingsManager(new Gson(), codexDir);
-        manager.updateContextWindowPreset("500k");
-        String before = Files.readString(configPath, StandardCharsets.UTF_8);
-        assertTrue(before.contains("model_context_window = 500000"));
-
-        CodexContextWindowConfigService service =
-                CodexContextWindowConfigService.createForTests(manager);
-        AtomicInteger callbacks = new AtomicInteger();
-        service.registerCallback(config -> callbacks.incrementAndGet());
-
-        CodexContextWindowConfigService.OperationResult result = service.readCurrent();
-
-        assertTrue(result.isSuccess());
-        assertEquals("default", result.getConfig().getPreset());
-        String migrated = Files.readString(configPath, StandardCharsets.UTF_8);
-        assertFalse(migrated.contains("model_context_window = 500000"));
-        assertFalse(migrated.contains("model_auto_compact_token_limit = 450000"));
-        assertEquals(1, callbacks.get());
-        assertEquals("default", service.readCurrent().getConfig().getPreset());
-        assertEquals(1, callbacks.get());
+    public void servicePreservesExplicitWindowsWithoutBroadcastingOrWriting() throws Exception {
+        for (int window : new int[]{272_000, 500_000}) {
+            for (boolean withThreshold : new boolean[]{false, true}) {
+                Path codexDir = Files.createTempDirectory("codex-context-explicit");
+                Path configPath = codexDir.resolve("config.toml");
+                String original = "# preserve explicit settings\nmodel_context_window = " + window + "\n"
+                        + (withThreshold ? "model_auto_compact_token_limit = " + (window * 9 / 10) + "\n" : "");
+                Files.writeString(configPath, original, StandardCharsets.UTF_8);
+                CodexSettingsManager manager = new CodexSettingsManager(new Gson(), codexDir);
+                CodexContextWindowConfigService service = CodexContextWindowConfigService.createForTests(manager);
+                AtomicInteger callbacks = new AtomicInteger();
+                service.registerCallback(config -> callbacks.incrementAndGet());
+                for (int read = 0; read < 2; read++) {
+                    CodexContextWindowConfigService.OperationResult result = service.readCurrent();
+                    assertTrue(result.isSuccess());
+                    assertEquals(window == 500_000 ? "500k" : "custom", result.getConfig().getPreset());
+                    assertEquals(Integer.valueOf(window), result.getConfig().getContextWindow());
+                    assertEquals(original, Files.readString(configPath, StandardCharsets.UTF_8));
+                    assertEquals(0, callbacks.get());
+                }
+            }
+        }
     }
 
     @Test

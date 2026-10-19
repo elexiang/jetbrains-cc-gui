@@ -45,8 +45,6 @@ public class CodexSettingsManager {
     private static final Object CONFIG_FILE_LOCK = new Object();
     private static final String MODEL_CONTEXT_WINDOW_KEY = "model_context_window";
     private static final String MODEL_AUTO_COMPACT_TOKEN_LIMIT_KEY = "model_auto_compact_token_limit";
-    private static final int DEFAULT_CONTEXT_WINDOW = 272_000;
-    private static final int DEFAULT_AUTO_COMPACT_TOKEN_LIMIT = 244_800;
     private static final int MEDIUM_CONTEXT_WINDOW = 500_000;
     private static final int MEDIUM_AUTO_COMPACT_TOKEN_LIMIT = 450_000;
     private static final int LARGE_CONTEXT_WINDOW = 1_000_000;
@@ -219,11 +217,6 @@ public class CodexSettingsManager {
         if (contextWindow == null && autoCompactTokenLimit == null) {
             return CodexContextWindowConfig.defaultConfig();
         }
-        if (Integer.valueOf(DEFAULT_CONTEXT_WINDOW).equals(contextWindow)
-                && (autoCompactTokenLimit == null
-                    || Integer.valueOf(DEFAULT_AUTO_COMPACT_TOKEN_LIMIT).equals(autoCompactTokenLimit))) {
-            return CodexContextWindowConfig.defaultConfig();
-        }
         if (Integer.valueOf(MEDIUM_CONTEXT_WINDOW).equals(contextWindow)
                 && (autoCompactTokenLimit == null
                     || Integer.valueOf(MEDIUM_AUTO_COMPACT_TOKEN_LIMIT).equals(autoCompactTokenLimit))) {
@@ -276,8 +269,8 @@ public class CodexSettingsManager {
         boolean restoreDefault;
         switch (preset) {
             case CodexContextWindowConfig.PRESET_DEFAULT:
-                contextWindow = DEFAULT_CONTEXT_WINDOW;
-                autoCompactTokenLimit = DEFAULT_AUTO_COMPACT_TOKEN_LIMIT;
+                contextWindow = 0; // Unused: default removes both overrides.
+                autoCompactTokenLimit = 0;
                 restoreDefault = true;
                 break;
             case CodexContextWindowConfig.PRESET_500K:
@@ -626,8 +619,8 @@ public class CodexSettingsManager {
         static CodexContextWindowConfig defaultConfig() {
             return new CodexContextWindowConfig(
                     PRESET_DEFAULT,
-                    DEFAULT_CONTEXT_WINDOW,
-                    DEFAULT_AUTO_COMPACT_TOKEN_LIMIT,
+                    null,
+                    null,
                     false
             );
         }

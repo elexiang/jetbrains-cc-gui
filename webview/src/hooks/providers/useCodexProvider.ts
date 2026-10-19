@@ -38,8 +38,8 @@ interface ConfirmedContextWindowConfig {
 
 const DEFAULT_CONTEXT_WINDOW_CONFIG: ConfirmedContextWindowConfig = {
   value: 'default',
-  contextWindowTokens: 272_000,
-  autoCompactTokenLimit: 244_800,
+  contextWindowTokens: null,
+  autoCompactTokenLimit: null,
 };
 
 const isContextWindowValue = (value: unknown): value is CodexContextWindowValue =>
@@ -72,8 +72,8 @@ export function useCodexProvider({ currentProvider, addToast, t }: UseCodexProvi
   const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>('high');
   const [codexFastMode, setCodexFastMode] = useState<CodexFastMode>('normal');
   const [codexContextWindow, setCodexContextWindow] = useState<CodexContextWindowValue>('default');
-  const [codexContextWindowTokens, setCodexContextWindowTokens] = useState<number | null>(272_000);
-  const [codexAutoCompactTokenLimit, setCodexAutoCompactTokenLimit] = useState<number | null>(244_800);
+  const [codexContextWindowTokens, setCodexContextWindowTokens] = useState<number | null>(null);
+  const [codexAutoCompactTokenLimit, setCodexAutoCompactTokenLimit] = useState<number | null>(null);
   const [codexContextWindowLoading, setCodexContextWindowLoading] = useState(true);
   const [codexContextWindowSaving, setCodexContextWindowSaving] = useState(false);
   const [codexContextManagement, setCodexContextManagement] = useState(false);
@@ -241,9 +241,8 @@ export function useCodexProvider({ currentProvider, addToast, t }: UseCodexProvi
     pendingPresetRef.current = preset;
     setCodexContextWindowSaving(true);
     setCodexContextWindow(preset);
-    if (preset === 'default') setCodexContextWindowTokens(272_000);
-    if (preset === '500k') setCodexContextWindowTokens(500_000);
-    if (preset === '1m') setCodexContextWindowTokens(1_000_000);
+    setCodexContextWindowTokens(preset === '1m' ? 1_000_000 : preset === '500k' ? 500_000 : null);
+    setCodexAutoCompactTokenLimit(preset === '1m' ? 900_000 : preset === '500k' ? 450_000 : null);
 
     const sent = sendBridgeEvent('set_codex_context_window', JSON.stringify({ preset }));
     if (!sent) {

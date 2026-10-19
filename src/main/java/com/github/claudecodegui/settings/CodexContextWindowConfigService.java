@@ -56,17 +56,9 @@ public final class CodexContextWindowConfigService {
             CodexSettingsManager.CodexContextWindowConfig config = null;
             try {
                 config = readSnapshot();
-                if ("500k".equals(config.getPreset())) {
-                    // 500K is no longer exposed by the UI. Migrate it through
-                    // the existing atomic writer so comments, sections, and
-                    // unrelated settings retain the same safety guarantees.
-                    settingsManager.updateContextWindowPreset("default");
-                    config = readSnapshot();
-                    notifyCallbacks(config);
-                }
                 return OperationResult.success(config);
             } catch (Exception e) {
-                LOG.warn("[CodexContextWindow] Failed to read or migrate config: " + e.getMessage(), e);
+                LOG.warn("[CodexContextWindow] Failed to read config: " + e.getMessage(), e);
                 return OperationResult.failure(config, e.getMessage());
             }
         }

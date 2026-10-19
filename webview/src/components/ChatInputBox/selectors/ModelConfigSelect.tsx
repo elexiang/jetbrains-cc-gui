@@ -12,6 +12,7 @@ import {
   type ReasoningEffort,
 } from '../types';
 import { CodexContextWindowSelect } from './CodexContextWindowSelect';
+import { getCodexContextWindowLabel } from './codexContextWindowLabels';
 import { ModelConfigSubmenuRow } from './ModelConfigSubmenuRow';
 import { ModelConfigDropdown } from './ModelConfigDropdown';
 import { ModelConfigTrigger } from './ModelConfigTrigger';
@@ -70,7 +71,7 @@ export const ModelConfigSelect = ({
   reasoningEffort = 'high',
   onReasoningChange,
   codexContextWindow = 'default',
-  codexContextWindowTokens = 272_000,
+  codexContextWindowTokens = null,
   codexContextWindowLoading = false,
   codexContextWindowSaving = false,
   onCodexContextWindowChange,
@@ -158,9 +159,7 @@ export const ModelConfigSelect = ({
   const showCodexContext = currentProvider === 'codex' && !!onCodexContextWindowChange;
   const codexContextLabel = codexContextWindowLoading
     ? t('codexContextWindow.loading', { defaultValue: 'Context…' })
-    : codexContextWindow === '1m'
-      ? t('codexContextWindow.oneMillionLabel', { defaultValue: '1M' })
-      : t('codexContextWindow.defaultLabel', { defaultValue: 'Default 272K' });
+    : getCodexContextWindowLabel(t, codexContextWindow, codexContextWindowTokens);
 
   const closeMenu = useCallback(() => {
     resetSubmenu();

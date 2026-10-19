@@ -54,6 +54,7 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
       codexContextManagement, codexContextManagementSaving,
       onCodexContextManagementChange,
       codexContextWindow = 'default',
+      codexContextWindowTokens,
       codexContextWindowLoading = false,
       codexContextWindowSaving = false,
       onCodexContextWindowChange,
@@ -224,6 +225,7 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
           codexContextManagementSaving={codexContextManagementSaving}
           onCodexContextManagementChange={onCodexContextManagementChange}
           codexContextWindow={codexContextWindow}
+          codexContextWindowTokens={codexContextWindowTokens}
           codexContextWindowLoading={codexContextWindowLoading}
           codexContextWindowSaving={codexContextWindowSaving}
           onCodexContextWindowChange={onCodexContextWindowChange}

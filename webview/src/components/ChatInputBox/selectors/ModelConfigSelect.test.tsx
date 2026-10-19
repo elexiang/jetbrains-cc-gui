@@ -25,8 +25,8 @@ vi.mock('antd/es/switch', () => ({
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, options?: { defaultValue?: string; model?: string }) =>
-      options?.model ?? options?.defaultValue ?? key,
+    t: (key: string, options?: { defaultValue?: string; model?: string; value?: string }) =>
+      options?.model ?? options?.defaultValue?.replace('{{value}}', options?.value ?? '') ?? key,
   }),
 }));
 
@@ -55,7 +55,7 @@ describe('ModelConfigSelect', () => {
     );
 
     const trigger = screen.getByTestId('model-config-trigger');
-    expect(trigger.textContent).toContain('Default 272K');
+    expect(trigger.textContent).toContain('Model default');
     fireEvent.click(trigger);
     fireEvent.click(screen.getByTestId('model-config-option-codex-context'));
     fireEvent.click(screen.getByRole('checkbox', { name: '1M' }));
@@ -63,6 +63,15 @@ describe('ModelConfigSelect', () => {
     expect(onContextChange).toHaveBeenCalledWith('1m');
     expect(screen.queryByTestId('model-config-dropdown')).toBeNull();
   });
+
+  it.each([['500k', 500_000, '500K'], ['custom', 272_000, '272K']] as const)(
+    'summarizes explicit %s settings as custom', (preset, tokens, label) => {
+      render(<ModelConfigSelect selectedModel="gpt-6.1-sol" currentProvider="codex"
+        onModelSelect={vi.fn()} codexContextWindow={preset} codexContextWindowTokens={tokens}
+        onCodexContextWindowChange={vi.fn()} />);
+      expect(screen.getByTestId('model-config-trigger').textContent).toContain(`Custom ${label}`);
+    },
+  );
 
   beforeEach(() => localStorage.clear());
   it('keeps the effort row visible for an aggregated model', () => {
@@ -270,7 +279,7 @@ describe('ModelConfigSelect', () => {
     );
 
     const trigger = screen.getByTestId('model-config-trigger');
-    expect(trigger.textContent).toContain('Default 272K');
+    expect(trigger.textContent).toContain('Custom 500K');
 
     fireEvent.click(trigger);
     fireEvent.click(screen.getByTestId('model-config-option-codex-context'));

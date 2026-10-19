@@ -2562,7 +2562,7 @@
   "codexContextWindow": {
     "title": "Select Codex context window",
     "oneMillionLabel": "1M",
-    "oneMillionDescription": "Use a 1M Codex context window; turn off to restore the default 272K window.",
+    "oneMillionDescription": "Request a 1M Codex context window; turn off to follow the model default. Actual capacity depends on the runtime.",
     "loading": "Context…",
     "customLabel": "Custom {{value}}",
     "saved": "Codex context updated; the next message will use it",
@@ -2571,7 +2571,7 @@
     "bridgeUnavailable": "Codex context settings are not available yet",
     "savingBlocked": "Please wait for the Codex context setting to finish saving",
     "default": {
-      "label": "Default 272K",
+      "label": "Model default",
       "description": "Remove overrides and use the official Codex default context window"
     },
     "1m": {

@@ -74,6 +74,41 @@ describe('useCodexProvider context-window config', () => {
     delete window.__pendingCodexContextWindowConfig;
   });
 
+  it('follows model defaults with null values before and after model changes', () => {
+    const { result } = renderHook(() => useCodexProvider({ currentProvider: 'codex', addToast: vi.fn(), t }));
+    expect(result.current.codexContextWindowTokens).toBeNull();
+    expect(result.current.codexAutoCompactTokenLimit).toBeNull();
+    act(() => window.updateCodexContextWindowConfig?.({
+      success: true, preset: 'default', contextWindow: null, autoCompactTokenLimit: null,
+    }));
+    act(() => result.current.setSelectedCodexModel('gpt-6.1-sol'));
+    expect(result.current.codexContextWindow).toBe('default');
+    expect(result.current.codexContextWindowTokens).toBeNull();
+    act(() => result.current.setSelectedCodexModel('gpt-6-sol'));
+    expect(result.current.codexContextWindowTokens).toBeNull();
+    expect(result.current.codexAutoCompactTokenLimit).toBeNull();
+  });
+
+  it('restores runtime defaults optimistically and accepts cross-window snapshots', () => {
+    const { result } = renderHook(() => useCodexProvider({ currentProvider: 'codex', addToast: vi.fn(), t }));
+    act(() => window.updateCodexContextWindowConfig?.({
+      success: true, preset: '1m', contextWindow: 1_000_000, autoCompactTokenLimit: 900_000,
+    }));
+    act(() => result.current.handleCodexContextWindowChange('default'));
+    expect(result.current.codexContextWindowTokens).toBeNull();
+    expect(result.current.codexAutoCompactTokenLimit).toBeNull();
+    expect(sendBridgeEventMock).toHaveBeenCalledWith('set_codex_context_window', '{"preset":"default"}');
+    act(() => window.updateCodexContextWindowConfig?.({
+      success: true, preset: 'default', contextWindow: null, autoCompactTokenLimit: null,
+    }));
+    expect(result.current.codexContextWindowSaving).toBe(false);
+    act(() => window.updateCodexContextWindowConfig?.({
+      success: true, preset: '500k', contextWindow: 500_000, autoCompactTokenLimit: 450_000,
+    }));
+    expect(result.current.codexContextWindow).toBe('500k');
+    expect(result.current.codexContextWindowTokens).toBe(500_000);
+  });
+
   it('loads the authoritative 1m config and refreshes when Codex is active', () => {
     const { result } = renderHook(() => useCodexProvider({
       currentProvider: 'codex',
@@ -161,6 +196,8 @@ describe('useCodexProvider context-window config', () => {
 
     expect(result.current.codexContextWindow).toBe('1m');
     expect(result.current.codexContextWindowSaving).toBe(false);
+    expect(result.current.codexContextWindowTokens).toBe(1_000_000);
+    expect(result.current.codexAutoCompactTokenLimit).toBe(900_000);
     expect(addToast).toHaveBeenCalledWith('config.toml is read-only', 'error');
   });
 

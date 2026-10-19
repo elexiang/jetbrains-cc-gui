@@ -33,6 +33,7 @@ interface ContextBarProps {
   onRequestEnableFileContext?: () => void;
   /** Codex-only global context controls */
   codexContextWindow?: CodexContextWindowValue;
+  codexContextWindowTokens?: number | null;
   codexContextWindowLoading?: boolean;
   codexContextWindowSaving?: boolean;
   onCodexContextWindowChange?: (preset: CodexContextWindowPreset) => void;
@@ -60,6 +61,7 @@ export const ContextBar: React.FC<ContextBarProps> = memo(({
   autoOpenFileEnabled = false,
   onRequestEnableFileContext,
   codexContextWindow = 'default',
+  codexContextWindowTokens,
   codexContextWindowLoading = false,
   codexContextWindowSaving = false,
   onCodexContextWindowChange,
@@ -78,6 +80,7 @@ export const ContextBar: React.FC<ContextBarProps> = memo(({
         {currentProvider === 'codex' && onCodexContextWindowChange && (
           <CodexContextWindowToggle
             value={codexContextWindow}
+            contextWindowTokens={codexContextWindowTokens}
             loading={codexContextWindowLoading}
             saving={codexContextWindowSaving}
             disabled={codexContextManagementSaving}

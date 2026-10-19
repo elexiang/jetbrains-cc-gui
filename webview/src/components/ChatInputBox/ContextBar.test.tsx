@@ -5,7 +5,8 @@ import { ContextBar } from './ContextBar';
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     i18n: { language: 'en' },
-    t: (_key: string, options?: { defaultValue?: string }) => options?.defaultValue ?? _key,
+    t: (_key: string, options?: { defaultValue?: string; value?: string }) =>
+      options?.defaultValue?.replace('{{value}}', options?.value ?? '') ?? _key,
   }),
 }));
 
@@ -14,6 +15,21 @@ vi.mock('../../hooks/useClaudePlanUsage', () => ({
 }));
 
 describe('ContextBar Codex controls', () => {
+  it.each(['default', '1m', 'custom'] as const)(
+    'keeps the reported capacity independent of the %s request', (preset) => {
+      const { container } = render(
+        <ContextBar currentProvider="codex" codexContextWindow={preset}
+          codexContextWindowTokens={preset === 'custom' ? 640_000 : null}
+          usedTokens={95_000} maxTokens={475_000} percentage={20}
+          onCodexContextWindowChange={vi.fn()} />,
+      );
+      expect(container.querySelector('.token-tooltip')?.textContent).toContain('95k / 475k');
+      const toggle = screen.getByTestId('codex-context-window-toggle');
+      if (preset === 'custom') expect(toggle.title).toContain('Custom 640K');
+      expect(toggle.getAttribute('aria-checked')).toBe(String(preset === '1m'));
+    },
+  );
+
   it('keeps the 1M toggle after usage without a context management selector', () => {
     const onWindowChange = vi.fn();
     const onManagementChange = vi.fn();

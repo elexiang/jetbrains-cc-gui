@@ -345,8 +345,8 @@ test('Codex keeps context controls in the top ContextBar', async ({ page }, test
   await page.evaluate(() => window.updateCodexContextWindowConfig?.(JSON.stringify({
     success: true,
     preset: 'default',
-    contextWindow: 272_000,
-    autoCompactTokenLimit: 244_800,
+    contextWindow: null,
+    autoCompactTokenLimit: null,
     custom: false,
   })));
 
@@ -363,6 +363,12 @@ test('Codex keeps context controls in the top ContextBar', async ({ page }, test
   await expect(speedToggle).toHaveAttribute('role', 'checkbox');
   await expect(speedToggle).toHaveAttribute('aria-checked', 'false');
   await expect(contextToggle).toBeVisible();
+  await expect(contextToggle).toHaveAttribute('title', /follow the model default/);
+  await page.evaluate(() => window.updateCodexContextWindowConfig?.(JSON.stringify({
+    success: true, preset: 'custom', contextWindow: 640_000, autoCompactTokenLimit: 500_000, custom: true,
+  })));
+  await expect(contextToggle).toHaveAttribute('aria-checked', 'false');
+  await expect(contextToggle).toHaveAttribute('title', /Custom 640K/);
   await expect(managementTrigger).toHaveCount(0);
 
   await openDirectSelector(page, modelTrigger, page.getByTestId('model-selector-dropdown'), 'Codex model');

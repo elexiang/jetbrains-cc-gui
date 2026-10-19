@@ -2566,7 +2566,7 @@
   "codexContextWindow": {
     "title": "选择 Codex 上下文窗口",
     "oneMillionLabel": "1M",
-    "oneMillionDescription": "启用 1M Codex 上下文窗口；取消勾选后恢复默认 272K。",
+    "oneMillionDescription": "勾选请求 1M 上下文，取消勾选后跟随模型默认；实际容量以运行时为准。",
     "loading": "上下文…",
     "customLabel": "自定义 {{value}}",
     "saved": "Codex 上下文已更新，下一条消息生效",
@@ -2575,7 +2575,7 @@
     "bridgeUnavailable": "Codex 上下文设置尚不可用",
     "savingBlocked": "请等待 Codex 上下文设置保存完成",
     "default": {
-      "label": "默认 272K",
+      "label": "模型默认",
       "description": "移除覆盖项，使用 Codex 官方默认上下文窗口"
     },
     "1m": {

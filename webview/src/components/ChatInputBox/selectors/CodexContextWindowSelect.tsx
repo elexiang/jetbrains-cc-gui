@@ -8,6 +8,7 @@ import { CodexContextWindowToggle } from './CodexContextWindowToggle';
  */
 export function CodexContextWindowSelect({
   value,
+  contextWindowTokens,
   loading = false,
   saving = false,
   onChange,
@@ -31,6 +32,7 @@ export function CodexContextWindowSelect({
   return (
     <CodexContextWindowToggle
       value={value}
+      contextWindowTokens={contextWindowTokens}
       loading={loading}
       saving={saving}
       onChange={handleChange}
@@ -38,14 +40,6 @@ export function CodexContextWindowSelect({
   );
 }
 
-export function formatTokenCount(tokens?: number | null): string {
-  if (typeof tokens !== 'number' || !Number.isFinite(tokens) || tokens <= 0) return '';
-  if (tokens >= 1_000_000) {
-    const value = tokens / 1_000_000;
-    return `${Number.isInteger(value) ? value.toFixed(0) : value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')}M`;
-  }
-  const value = tokens / 1_000;
-  return `${Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1).replace(/\.0$/, '')}K`;
-}
+export { formatTokenCount } from './codexContextWindowLabels';
 
 export default CodexContextWindowSelect;

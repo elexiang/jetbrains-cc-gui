@@ -4,7 +4,7 @@ import { CodexContextWindowToggle } from './CodexContextWindowToggle';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (_key: string, options?: { defaultValue?: string }) => options?.defaultValue ?? _key,
+    t: (_key: string, options?: { defaultValue?: string; value?: string }) => options?.defaultValue?.replace('{{value}}', options?.value ?? '') ?? _key,
   }),
 }));
 
@@ -17,6 +17,7 @@ describe('CodexContextWindowToggle', () => {
 
     const toggle = screen.getByRole('checkbox', { name: '1M' });
     expect(toggle.getAttribute('aria-checked')).toBe('false');
+    expect(toggle.title).toContain('follow the model default');
     const checkbox = toggle.querySelector('.selector-checkbox');
     expect(checkbox).not.toBeNull();
     expect(checkbox?.classList.contains('is-checked')).toBe(false);
@@ -41,6 +42,15 @@ describe('CodexContextWindowToggle', () => {
     fireEvent.click(toggle);
     expect(onChange).toHaveBeenCalledWith('1m');
   });
+
+  it.each([['500k', 500_000, '500K'], ['custom', 272_000, '272K'], ['custom', null, '—']] as const)(
+    'describes explicit %s settings without calling them defaults', (value, tokens, label) => {
+      render(<CodexContextWindowToggle value={value} contextWindowTokens={tokens} onChange={vi.fn()} />);
+      const toggle = screen.getByRole('checkbox', { name: '1M' });
+      expect(toggle.getAttribute('aria-checked')).toBe('false');
+      expect(toggle.title).toContain(`Custom ${label}`);
+    },
+  );
 
   it('disables interaction while loading or saving', () => {
     const { rerender } = render(

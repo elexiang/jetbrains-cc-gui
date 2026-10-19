@@ -1,9 +1,11 @@
 import { useTranslation } from 'react-i18next';
 import type { CodexContextWindowPreset, CodexContextWindowValue } from '../types';
 import { SelectorCheckbox } from './SelectorCheckbox';
+import { getCodexContextWindowLabel } from './codexContextWindowLabels';
 
 interface CodexContextWindowToggleProps {
   value: CodexContextWindowValue;
+  contextWindowTokens?: number | null;
   loading?: boolean;
   saving?: boolean;
   disabled?: boolean;
@@ -17,6 +19,7 @@ interface CodexContextWindowToggleProps {
  */
 export function CodexContextWindowToggle({
   value,
+  contextWindowTokens,
   loading = false,
   saving = false,
   disabled = false,
@@ -25,6 +28,12 @@ export function CodexContextWindowToggle({
   const { t } = useTranslation();
   const checked = value === '1m';
   const isDisabled = disabled || loading || saving;
+  const description = t('codexContextWindow.oneMillionDescription', {
+    defaultValue: 'Request a 1M Codex context window; turn off to follow the model default. Actual capacity depends on the runtime.',
+  });
+  const title = value === 'custom' || value === '500k'
+    ? `${getCodexContextWindowLabel(t, value, contextWindowTokens)}. ${description}`
+    : description;
 
   return (
     <button
@@ -33,9 +42,7 @@ export function CodexContextWindowToggle({
       role="checkbox"
       aria-checked={checked}
       aria-label={t('codexContextWindow.oneMillionLabel', { defaultValue: '1M' })}
-      title={t('codexContextWindow.oneMillionDescription', {
-        defaultValue: 'Use a 1M Codex context window; turn off to restore the default 272K window.',
-      })}
+      title={title}
       disabled={isDisabled}
       data-testid="codex-context-window-toggle"
       onClick={(event) => {

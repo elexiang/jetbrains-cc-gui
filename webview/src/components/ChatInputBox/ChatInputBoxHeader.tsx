@@ -44,6 +44,7 @@ export function ChatInputBoxHeader({
   autoOpenFileEnabled,
   onRequestEnableFileContext,
   codexContextWindow,
+  codexContextWindowTokens,
   codexContextWindowLoading,
   codexContextWindowSaving,
   onCodexContextWindowChange,
@@ -82,6 +83,7 @@ export function ChatInputBoxHeader({
   autoOpenFileEnabled?: boolean;
   onRequestEnableFileContext?: () => void;
   codexContextWindow?: CodexContextWindowValue;
+  codexContextWindowTokens?: number | null;
   codexContextWindowLoading?: boolean;
   codexContextWindowSaving?: boolean;
   onCodexContextWindowChange?: (preset: CodexContextWindowPreset) => void;
@@ -143,6 +145,7 @@ export function ChatInputBoxHeader({
         autoOpenFileEnabled={autoOpenFileEnabled}
         onRequestEnableFileContext={onRequestEnableFileContext}
         codexContextWindow={codexContextWindow}
+        codexContextWindowTokens={codexContextWindowTokens}
         codexContextWindowLoading={codexContextWindowLoading}
         codexContextWindowSaving={codexContextWindowSaving}
         onCodexContextWindowChange={onCodexContextWindowChange}
