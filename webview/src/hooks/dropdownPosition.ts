@@ -148,8 +148,10 @@ export function getMainDropdownLayout({
   }
   left = Math.max(padding, Math.min(left, viewport.width - dropdownWidth - padding));
 
-  const availableAbove = Math.max(0, trigger.top - gap - padding);
-  const availableBelow = Math.max(0, viewport.height - trigger.bottom - gap - padding);
+  const aboveBottom = Math.min(trigger.top - gap, viewport.height - padding);
+  const belowTop = Math.max(trigger.bottom + gap, padding);
+  const availableAbove = Math.max(0, aboveBottom - padding);
+  const availableBelow = Math.max(0, viewport.height - belowTop - padding);
   const desiredHeight = Math.max(
     1,
     measuredHeight ?? Math.min(300, Math.max(availableAbove, availableBelow)),
@@ -167,8 +169,8 @@ export function getMainDropdownLayout({
   return {
     left,
     ...(placement === 'below'
-      ? { top: trigger.bottom + gap }
-      : { bottom: viewport.height - trigger.top + gap }),
+      ? { top: belowTop }
+      : { bottom: viewport.height - aboveBottom }),
     maxHeight,
     placement,
   };

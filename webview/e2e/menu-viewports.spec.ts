@@ -671,3 +671,50 @@ test('large model selector remains searchable and capped', async ({ page }) => {
 
   expect(significantErrors(errors)).toEqual([]);
 });
+
+for (const fontSizeLevel of [2, 3, 6]) {
+  test(`Codex reasoning selector stays attached at font level ${fontSizeLevel}`, async ({ page }, testInfo) => {
+    const errors = collectPageErrors(page);
+    await page.setViewportSize({ width: 496, height: 340 });
+    await page.addInitScript((level) => {
+      localStorage.setItem('fontSizeLevel', String(level));
+      const saved = JSON.parse(localStorage.getItem('model-selection-state') || '{}');
+      localStorage.setItem('model-selection-state', JSON.stringify({
+        ...saved, provider: 'codex', codexModel: 'gpt-5.6-sol',
+      }));
+    }, fontSizeLevel);
+    await page.goto('/');
+    const trigger = page.getByTestId('reasoning-select-trigger');
+    await trigger.click();
+    const submenu = page.getByTestId('reasoning-selector-dropdown');
+    await expect(submenu.locator('.selector-option')).toHaveCount(5);
+
+    // Geometry must settle after the entrance animation before testing attachment.
+    await submenu.evaluate((element) => Promise.all(element.getAnimations().map(animation => animation.finished)));
+    await expectInsideViewport(page, submenu, 'reasoning submenu');
+    const expectAttachedToTrigger = async () => {
+      const anchor = await trigger.boundingBox();
+      const menu = await submenu.boundingBox();
+      expect(anchor).not.toBeNull();
+      expect(menu).not.toBeNull();
+      if (!anchor || !menu) return;
+      expect(Math.abs(Math.min(anchor.y, page.viewportSize()!.height - 8) - menu.y - menu.height), 'reasoning menu stays above its trigger')
+        .toBeLessThanOrEqual(16);
+      expect(Math.min(anchor.x + anchor.width, menu.x + menu.width) - Math.max(anchor.x, menu.x),
+        'reasoning menu remains horizontally aligned with its trigger').toBeGreaterThan(0);
+    };
+    await expectAttachedToTrigger();
+    await page.screenshot({ path: testInfo.outputPath('reasoning-menu.png'), animations: 'disabled' });
+
+    await page.setViewportSize({ width: 393, height: 300 });
+    await expect(async () => {
+      await expectInsideViewport(page, submenu, 'resized reasoning submenu');
+      await expectAttachedToTrigger();
+    }).toPass({ timeout: 5_000 });
+    await submenu.locator('.selector-option').last().click();
+    await expect(submenu).toHaveCount(0);
+    await expect(trigger).toContainText(/max/i);
+    await expect.poll(() => page.evaluate(() => (window as BridgeWindow).sentMessages?.includes('set_reasoning_effort:max'))).toBe(true);
+    expect(significantErrors(errors)).toEqual([]);
+  });
+}

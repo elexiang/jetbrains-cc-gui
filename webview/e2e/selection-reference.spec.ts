@@ -8,7 +8,7 @@ test('long selection filenames keep their line range visible and full tooltip', 
   }, APP_VERSION);
   await page.goto('/');
   await expect.poll(() => page.evaluate(() => typeof window.insertCodeSnippetAtCursor)).toBe('function');
-  const reference = 'E:/gitee_linya_projects/Linoya-ruoyimes/ruoyi-admin/src/main/java/com/ruoyi/physical/service/impl/PhysicalTestDataServiceImpl.java#L73-76';
+  const reference = 'C:/workspace/src/service/impl/PhysicalTestDataServiceImpl.java#L73-76';
   await page.evaluate((value) => window.insertCodeSnippetAtCursor?.(`@${value}`), reference);
   const tag = page.locator('.file-tag').first();
   const filename = tag.locator('.file-tag-text');

@@ -87,6 +87,17 @@ describe('getSubmenuLayout', () => {
 });
 
 describe('getMainDropdownLayout', () => {
+  it('keeps an open menu reachable when a resize moves its trigger below the viewport', () => {
+    const layout = getMainDropdownLayout({
+      trigger: { left: 20, right: 100, top: 440, bottom: 468, width: 80, height: 28 },
+      viewport: { width: 393, height: 300, left: 0, top: 0 },
+      measuredHeight: 400,
+    });
+
+    expect(layout.bottom).toBeGreaterThanOrEqual(8);
+    expect(300 - layout.bottom! - layout.maxHeight).toBeGreaterThanOrEqual(8);
+  });
+
   it('prefers below placement when the lower viewport has enough room', () => {
     const layout = getMainDropdownLayout({
       trigger: { left: 20, right: 100, top: 120, bottom: 148, width: 80, height: 28 },
