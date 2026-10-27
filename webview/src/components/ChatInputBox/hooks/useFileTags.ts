@@ -169,36 +169,14 @@ export function useFileTags({
           continue;
         }
 
-        // Fall back to simple pattern matching for paths not in pathMappingRef.
-        // This handles absolute paths and paths with line numbers.
-        // The helper scans forward allowing spaces when the next segment
-        // looks like a path continuation (contains a path separator: \ or /).
+        // Fall back to a single whitespace-delimited token for paths that are
+        // not in pathMappingRef. File insertion routes register full paths
+        // before inserting them, so mapped matching is the only safe way to
+        // support spaces in file names.
         const remainingText = text.substring(i);
-        const afterAt = remainingText.slice(1); // text after '@'
-        let endPos = 0;
-        while (endPos < afterAt.length) {
-          const ch = afterAt[endPos];
-          if (ch === '\n' || ch === '\r' || ch === '@') break;
-          if (ch === ' ' || ch === '\t') {
-            // Peek ahead: if next segment has a path separator or file
-            // extension, the space is inside the path — include it.
-            const peekRemainder = afterAt.slice(endPos + 1);
-            if (peekRemainder.length > 0 && peekRemainder[0] !== ' '
-              && peekRemainder[0] !== '\t' && peekRemainder[0] !== '\n'
-              && peekRemainder[0] !== '\r' && peekRemainder[0] !== '@'
-              && /[\\/]/.test(peekRemainder.split(/\s/)[0])
-            ) {
-              endPos++; // include the space, continue scanning
-              continue;
-            }
-            break;
-          }
-          endPos++;
-        }
-        const fallbackPath = afterAt.slice(0, endPos);
-        const simpleMatch = fallbackPath.length > 0
-          ? ['@' + fallbackPath + (remainingText[endPos + 1] === ' ' ? ' ' : ''), fallbackPath] as const
-          : null;
+        // A whitespace-delimited fallback prevents ordinary text after an
+        // unregistered XML/Vue/HTML path from being absorbed into the tag.
+        const simpleMatch = remainingText.match(/^@([^\s@]+?)(\s|$)/);
 
         if (simpleMatch) {
           matches.push({
@@ -218,14 +196,13 @@ export function useFileTags({
       const hashIndex = filePath.indexOf('#');
       const pureFilePath = hashIndex !== -1 ? filePath.substring(0, hashIndex) : filePath;
       const pureFileName = pureFilePath.split(/[/\\]/).pop() || pureFilePath;
-      const hasLineNumber = /#L\d+/.test(filePath);
-      const isAbsolutePath = /^[a-zA-Z]:[/\\]/.test(filePath) || filePath.startsWith('/');
-
+      // Every external path, including a line-number reference, must be
+      // registered before rendering. Do not accept every absolute-looking
+      // token here: if a delimiter is lost, there is no reliable way to
+      // distinguish `file.xml1414` from a real filename.
       return pathMappingRef.current.has(pureFilePath)
         || pathMappingRef.current.has(pureFileName)
-        || pathMappingRef.current.has(filePath)
-        || hasLineNumber
-        || isAbsolutePath;
+        || pathMappingRef.current.has(filePath);
     };
 
     const matches = findMatches(currentText);

@@ -76,6 +76,7 @@ function renderUseGlobalCallbacks(editable: HTMLDivElement) {
 
   return {
     getTextContent,
+    pathMappingRef,
     setHasContent,
     adjustHeight,
     renderFileTags,
@@ -92,6 +93,7 @@ describe('useGlobalCallbacks', () => {
     vi.runOnlyPendingTimers();
     vi.useRealTimers();
     delete window.insertCodeSnippetAtCursor;
+    delete window.insertFileReferencesAtCursor;
     delete window.handleFilePathFromJava;
     document.body.innerHTML = '';
   });
@@ -142,5 +144,54 @@ describe('useGlobalCallbacks', () => {
     vi.runAllTimers();
 
     expect(getTextContent()).toBe('draft question\n@/path/to/file ');
+  });
+
+  it('registers multiple dedicated absolute file references before rendering', () => {
+    const editable = createEditable();
+    const { getTextContent, pathMappingRef } = renderUseGlobalCallbacks(editable);
+
+    window.insertFileReferencesAtCursor?.([
+      'C:\\project\\templates\\view file.xml',
+      'C:\\project\\pages\\index.vue',
+    ]);
+    vi.runAllTimers();
+
+    expect(getTextContent()).toBe(
+      '@C:\\project\\templates\\view file.xml @C:\\project\\pages\\index.vue '
+    );
+    expect(pathMappingRef.current.get('view file.xml')).toBe(
+      'C:\\project\\templates\\view file.xml'
+    );
+    expect(pathMappingRef.current.get('index.vue')).toBe(
+      'C:\\project\\pages\\index.vue'
+    );
+  });
+
+  it('keeps a generic code snippet separate from file-list parsing', () => {
+    const editable = createEditable();
+    const { pathMappingRef } = renderUseGlobalCallbacks(editable);
+
+    window.insertCodeSnippetAtCursor?.(
+      '@C:\\project\\templates\\view file.xml @C:\\project\\pages\\index.vue'
+    );
+    vi.runAllTimers();
+
+    expect(pathMappingRef.current.size).toBe(0);
+  });
+
+  it('registers a strict line-number reference with spaces through the generic bridge', () => {
+    const editable = createEditable();
+    const { getTextContent, pathMappingRef } = renderUseGlobalCallbacks(editable);
+
+    window.insertCodeSnippetAtCursor?.('@C:\\Program Files\\src\\Main.java#L10-12');
+    vi.runAllTimers();
+
+    expect(getTextContent()).toBe('@C:\\Program Files\\src\\Main.java#L10-12 ');
+    expect(pathMappingRef.current.get('C:\\Program Files\\src\\Main.java')).toBe(
+      'C:\\Program Files\\src\\Main.java'
+    );
+    expect(pathMappingRef.current.get('C:\\Program Files\\src\\Main.java#L10-12')).toBe(
+      'C:\\Program Files\\src\\Main.java'
+    );
   });
 });
